@@ -13,3 +13,4 @@ COPY . .
 WORKDIR /code
 
 CMD [ "python3", "create_thumbnail.py","../data/videos" ]
+
