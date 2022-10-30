@@ -19,6 +19,7 @@ import psutil
 import tensorflow as tf
 import sys
 from brisque import BRISQUE
+import json
 
 #Paths
 model_folder = "../data/models/"
@@ -357,6 +358,7 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
     totalFrames = int(cam.get(cv2.CAP_PROP_FRAME_COUNT)) - 1
     fps = cam.get(cv2.CAP_PROP_FPS)
 
+
     duration = totalFrames/fps
 
     if annotationSecond:
@@ -377,10 +379,14 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
     remainingFrames = totalFrames - (cutStartFrames + cutEndFrames)
     remainingSeconds = remainingFrames / fps
 
+
+
     if fpsExtract:
         totalFramesToExtract = math.floor(remainingSeconds * fpsExtract)
     if framerateExtract:
         totalFramesToExtract = math.floor(remainingFrames * framerateExtract)
+
+
 
 
     currentframe = 0
@@ -389,6 +395,7 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
     global numFramesExtracted
     numFramesExtracted = 0
     stopFrame = totalFrames-cutEndFrames
+
     while(True):
         # reading from frame
         ret,frame = cam.read()
@@ -409,9 +416,9 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
             img = cv2.resize(frame, dsize)
             cv2.imwrite(name, img)
             numFramesExtracted += 1
-
         currentframe += 1
-    frameExtractionEnds=time.time()
+        frameExtractionEnds=time.time()
+        
 
         
     priority_images = groupFrames(frames_folder, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runLogoDetection, runCloseUpDetection, close_up_threshold, logo_threshold)
@@ -495,7 +502,13 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
         imageName = finalThumbnail.split("/")[-1].split(".")[0]
         frameNum = int(imageName.replace("frame", ""))
         newName=newName.split(".")[0]+f'_{len(os.listdir(outputFolder))+1}'+'.'+newName.split(".")[-1]
-
+        metadata = {"duration":duration, "fps":fps,"frameSkip":frame_skip,
+                 "totalFrames":totalFrames,
+                 "selectedThumbnailTimeStamp":frameNum/frame_skip/fps}
+        jsonString = json.dumps(metadata)
+        jsonFile = open(f"{outputFolder}/metadata.json", "w")
+        jsonFile.write(jsonString)
+        jsonFile.close()
         cam.set(1, frameNum)
         ret, frame = cam.read()
         if downscaleOutput != 1.0:
