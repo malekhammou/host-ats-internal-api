@@ -12,6 +12,5 @@ for key,value in arguments.items():
 print(ARGS_STRING)
 EOF
 )
-
 cd code
 python3 create_thumbnail.py $ARGS_STRING ../data/videos
