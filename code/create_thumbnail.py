@@ -343,12 +343,12 @@ def main():
 def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runBlur, blur_model_name, svd_threshold, laplacian_threshold, runIQA, iqa_model_name, runLogoDetection, runCloseUpDetection, close_up_threshold, brisque_threshold, logo_threshold, cutStartSeconds, cutEndSeconds, totalFramesToExtract, fpsExtract, framerateExtract, annotationSecond, beforeAnnotationSecondsCut, afterAnnotationSecondsCut, filename_output):
     frameExtractionStarts=time.time()
     video_filename = video_path.split("/")[-1]
-    #frames_folder_outer = os.path.dirname(os.path.abspath(__file__)) + "/extractedFrames/"
-    frames_folder = frames_folder_outer + "/frames/"
+    frames_folder_outer="../results/temp/"+video_filename.split(".")[0]+"/"
+    frames_folder = frames_folder_outer+"/frames/"
     if not os.path.exists(frames_folder_outer):
-        os.mkdir(frames_folder_outer)
+        os.makedirs(frames_folder_outer)
     if not os.path.exists(frames_folder):
-        os.mkdir(frames_folder)
+        os.makedirs(frames_folder)
 
     #frames_folder = frames_folder_outer + "/"
 
@@ -357,8 +357,6 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
     cam = cv2.VideoCapture(video_path)
     totalFrames = int(cam.get(cv2.CAP_PROP_FRAME_COUNT)) - 1
     fps = cam.get(cv2.CAP_PROP_FPS)
-
-
     duration = totalFrames/fps
 
     if annotationSecond:
@@ -422,6 +420,7 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
 
         
     priority_images = groupFrames(frames_folder, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runLogoDetection, runCloseUpDetection, close_up_threshold, logo_threshold)
+
     finalThumbnail = ""
 
     for priority in priority_images:
@@ -477,6 +476,7 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
             for image in blur_filtered:
                 finalThumbnail = image
                 break
+    print(f'Blur Filtered:{blur_filtered}')
     if finalThumbnail == "":
         for priority in priority_images:
             if finalThumbnail != "":
@@ -504,7 +504,8 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
         newName=newName.split(".")[0]+f'_{len(os.listdir(outputFolder))+1}'+'.'+newName.split(".")[-1]
         metadata = {"duration":duration, "fps":fps,"frameSkip":frame_skip,
                  "totalFrames":totalFrames,
-                 "selectedThumbnailTimeStamp":frameNum/frame_skip/fps}
+                 "selectedThumbnailOffset":(duration*frameNum)/totalFrames,
+                 "topThumbnailCandidates":blur_filtered}
         jsonString = json.dumps(metadata)
         jsonFile = open(f"{outputFolder}/metadata.json", "w")
         jsonFile.write(jsonString)
@@ -521,13 +522,7 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
         # Release all space and windows once done
         cam.release()
         cv2.destroyAllWindows()
-
-        #secInVid = (frameNum / totalFrames) * duration
-
-        try: 
-            shutil.rmtree(frames_folder)
-        except OSError as e:
-            print("Error: %s - %s." % (e.filename, e.strerror))
+        
     global frame_extraction
     frame_extraction=frameExtractionEnds-frameExtractionStarts
     print("Done")
