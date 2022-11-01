@@ -20,7 +20,7 @@ import tensorflow as tf
 import sys
 from brisque import BRISQUE
 import json
-
+from collections import OrderedDict
 #Paths
 model_folder = "../data/models/"
 frames_folder_outer = "../results/temp"
@@ -476,7 +476,6 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
             for image in blur_filtered:
                 finalThumbnail = image
                 break
-    print(f'Blur Filtered:{blur_filtered}')
     if finalThumbnail == "":
         for priority in priority_images:
             if finalThumbnail != "":
@@ -498,14 +497,16 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
             extension_added = len(newName.split(".")) == 2
             if not extension_added:
                 newName = newName + ".jpg"
-            
+        topThumbnailCandidates= [{"frameNumber":int(item.split("/")[-1].split(".")[0].replace("frame","")),
+        "frameOffset":(duration*int(item.split("/")[-1].split(".")[0].replace("frame","")))/totalFrames} for item in blur_filtered]
         imageName = finalThumbnail.split("/")[-1].split(".")[0]
         frameNum = int(imageName.replace("frame", ""))
         newName=newName.split(".")[0]+f'_{len(os.listdir(outputFolder))+1}'+'.'+newName.split(".")[-1]
         metadata = {"duration":duration, "fps":fps,"frameSkip":frame_skip,
                  "totalFrames":totalFrames,
                  "selectedThumbnailOffset":(duration*frameNum)/totalFrames,
-                 "topThumbnailCandidates":blur_filtered}
+                 "selectedThumbnailFrame":frameNum,
+                 "topThumbnailCandidates":topThumbnailCandidates}
         jsonString = json.dumps(metadata)
         jsonFile = open(f"{outputFolder}/metadata.json", "w")
         jsonFile.write(jsonString)
