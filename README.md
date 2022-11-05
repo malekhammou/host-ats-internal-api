@@ -268,6 +268,8 @@ Demonstration videos for the HOST-ATS dashboard are available on YouTube:
 - Husa et al., HOST-ATS: Automatic Thumbnail Selection with Dashboard-Controlled ML Pipeline and Dynamic User Survey --> per-frame priority assignment simplified in Figure 4 (poster [here](https://drive.google.com/file/d/138gzsiznlKS8GrI7jMHKQKLYgIgrRCzq/view?usp=share_link))
 
 
+## Overview diagram
+
 ![host-ats-internal-diagram--20221105](https://user-images.githubusercontent.com/7714406/200123855-8ee92d38-1e1c-46bc-947f-1a33e90c1b9c.png)
 
 
@@ -293,8 +295,7 @@ Public image: https://hub.docker.com/r/malekhammou24/host-ats
 
 **Logic:**
 - Remove bad quality frames/thumbnails first
-- Since there are many different preferences in terms of what people think are good images, we should have a “model” to select each of these preferences
-then it is up to the customer to make a ruleset to prioritize
+- Individual customer profiles, to support different priority list and ruleset for thumbnail selection: since there are many different preferences in terms of what people think are good images, we should have a “model” to select each of these preferences, then it is up to the customer to make a ruleset to prioritize
 
 **Testing:**
 - Support multi-config in the core pipeline (CLI) and Docker
