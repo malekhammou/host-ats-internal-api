@@ -275,6 +275,7 @@ Demonstration videos for the HOST-ATS dashboard are available on YouTube:
 ## Configuration
 
 Dynamic list of configuration parameters: https://docs.google.com/spreadsheets/d/1LUru6R3vtGK2iG3Tp6Nywqwjhh6x0FluhStGS2NcOTc/
+--> [Configuration](https://github.com/simulamet-host/host-ats-internal/blob/main/README.md#configuration) section above will be updated per release according to this spreadsheet
 
 ## CLI
 ``python create_thumbnail.py <path-config-json> -<parameter> <value>``
