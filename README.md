@@ -272,6 +272,9 @@ Demonstration videos for the HOST-ATS dashboard are available on YouTube:
 
 ![host-ats-internal-diagram--20221105](https://user-images.githubusercontent.com/7714406/200123855-8ee92d38-1e1c-46bc-947f-1a33e90c1b9c.png)
 
+## Configuration
+
+Dynamic list of configuration parameters: https://docs.google.com/spreadsheets/d/1LUru6R3vtGK2iG3Tp6Nywqwjhh6x0FluhStGS2NcOTc/
 
 ## CLI
 ``python create_thumbnail.py <path-config-json> -<parameter> <value>``
