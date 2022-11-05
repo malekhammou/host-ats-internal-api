@@ -297,11 +297,24 @@ Public image: https://hub.docker.com/r/malekhammou24/host-ats
 - Top X thumbnail candidates, instead of single/all, should be listed in the output file and provided as images
 - Output filenames can use timestamps to avoid unwanted overwrites
 
-**Logic:**
-- Remove bad quality frames/thumbnails first
-- Individual customer profiles, to support different priority list and ruleset for thumbnail selection: since there are many different preferences in terms of what people think are good images, we should have a “model” to select each of these preferences, then it is up to the customer to make a ruleset to prioritize
+**Logic and modules:**
+- Preprocessing: Remove bad quality frames/thumbnails first
+- Individual customer profiles: (to support different priority list and ruleset for thumbnail selection) since there are many different preferences in terms of what people think are good images, we should have a “model” to select each of these preferences, then it is up to the customer to make a ruleset to prioritize
+- Content analysis: Implement alternative models in the existing content analysis modules (middle steps of the pipeline)
+   - e.g., [YOLOv4](https://arxiv.org/abs/2004.10934) 
+- Postprocessing: 
+   - Search literature for image quality enhancement models using ML
+   - Implement an additional step in the pipeline which improves the overall image quality of the selected thumbnail
+   - Modifications that can be considered: deblurring, cropping, ...
 
 **Testing:**
 - Support multi-config in the core pipeline (CLI) and Docker
 - Create test suite which can run the Docker multiple times with different configurations, using a single JSON, based on the multi-config (as an example, see "multi_config" option in https://github.com/MONROE-PROJECT/Experiments/tree/master/experiments/nettest/nettest-client) 
+- Wrapper script for automated testing with different values of the following:
+   - Different #frames (then compare time used for each module + overall)
+   - Annotation timestamp, clip before annotation, clip after annotation, and downsampling ratio
+- Store the results as described in https://github.com/simulamet-host/host-ats-internal/issues/6, with additional timing information (how long did each module take)
+- Evaluate the output thumbnails: 
+   - subjectively (i.e., we look at them ourselves, and we make a user study)
+   - objectively (e.g., BRISQUE score, or some other metric)
 
