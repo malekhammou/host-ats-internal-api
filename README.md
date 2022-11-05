@@ -292,6 +292,7 @@ Public image: https://hub.docker.com/r/malekhammou24/host-ats
 **Outputs:**
 - Provide more metadata about the selected thumbnail, as well as other thumbnail candidates
 - Top X thumbnail candidates, instead of single/all, should be listed in the output file and provided as images
+- Output filenames can use timestamps to avoid unwanted overwrites
 
 **Logic:**
 - Remove bad quality frames/thumbnails first
