@@ -20,7 +20,6 @@ import tensorflow as tf
 import sys
 from brisque import BRISQUE
 import json
-from collections import OrderedDict
 #Paths
 model_folder = "../data/models/"
 frames_folder_outer = "../results/temp"
@@ -60,34 +59,37 @@ total=0
 #frames extracted
 numFramesExtracted=0
 def main():
+    configFilePath="../config.json" if os.path.exists("../config.json") else "../default-config.json"
+    configFile = open(configFilePath)
+    config = json.load(configFile)
+    print(config)
     #Default values
-    close_up_threshold = 0.75
-    totalFramesToExtract = 50
-    faceDetModel = dnnStr
-    framerateExtract = None
-    fpsExtract = None
-    cutStartSeconds = 0
-    cutEndSeconds = 0
-    downscaleOnProcessing = 0.5
-    downscaleOutput = 1.0
-    annotationSecond = None
-    beforeAnnotationSecondsCut = 10
-    afterAnnotationSecondsCut = 40
-    staticThumbnailSec = None
-    logo_model_name = eliteserienStr
-    logo_detection_model = ""
-    logo_threshold = 0.1
-    close_up_model_name = surmaStr
-    close_up_model = ""
-    iqa_model_name = ocampoStr
-    brisque_threshold = 35
-    blur_model_name = laplacianStr
-    svd_threshold = 0.60
-    laplacian_threshold = 1000
-    filename_output = ""
+    destination=config["destination"]
+    close_up_threshold = config["close_up_threshold"]
+    totalFramesToExtract = config["totalFramesToExtract"]
+    faceDetModel = config["faceDetModel"]
+    framerateExtract = config["framerateExtract"]
+    fpsExtract = config["fpsExtract"]
+    cutStartSeconds = config["cutStartSeconds"]
+    cutEndSeconds = config["cutEndSeconds"]
+    downscaleOnProcessing = config["downscaleOnProcessing"]
+    downscaleOutput = config["downscaleOutput"]
+    annotationSecond = config["annotationSecond"]
+    beforeAnnotationSecondsCut = config["beforeAnnotationSecondsCut"]
+    afterAnnotationSecondsCut = config["afterAnnotationSecondsCut"]
+    staticThumbnailSec = config["staticThumbnailSec"]
+    logo_model_name = config["logo_model_name"]
+    logo_threshold = config["logo_threshold"]
+    close_up_model_name = config["close_up_model_name"]
+    iqa_model_name = config["iqa_model_name"]
+    brisque_threshold = config["brisque_threshold"]
+    blur_model_name = config["blur_model_name"]
+    svd_threshold = config["svd_threshold"]
+    laplacian_threshold = config["laplacian_threshold"]
+    filename_output = config["filename_output"]
     
     parser = argparse.ArgumentParser(description="Thumbnail generator")
-    parser.add_argument("destination", nargs=1, help="Destination of the input to be processed. Can be file or folder.")
+    parser.add_argument('--dest','--destination', type=str, required=False ,help="Destination of the input to be processed. Can be file or folder.")
     parser.add_argument('-iter','--iteration', type=int, required=False,help='Number of executions per configuration')
 
     #Logo detection models
@@ -143,7 +145,7 @@ def main():
 
     args = parser.parse_args()
     iteration=args.iteration
-    destination = args.destination[0]
+    destination = args.destination[0] if (not config["destination"] or config["destination"]=="") else config["destination"]
     staticThumbnailSec = args.staticThumbnailSec[0]
     filename_output = args.outputFilename[0]
 
@@ -172,7 +174,7 @@ def main():
 
     #Logo detection
     runLogoDetection = args.xLogoDetection
-    if not runLogoDetection:
+    if not runLogoDetection and not config["logo_model_name"] :
         logo_model_name = ""
     if args.LEliteserien2019:
         logo_model_name = eliteserienStr
@@ -182,7 +184,7 @@ def main():
 
     #Close-up detection
     runCloseUpDetection = args.xCloseupDetection
-    if not runCloseUpDetection:
+    if not runCloseUpDetection and not config["close_up_model_name"]:
         close_up_model_name = ""
     if args.CSurma:
         close_up_model_name = surmaStr
@@ -190,7 +192,7 @@ def main():
 
     #Face detection
     runFaceDetection = args.xFaceDetection
-    if not runFaceDetection:
+    if not runFaceDetection and not config["faceDetModel"]:
         faceDetModel = ""
     if args.dlib:
         faceDetModel = dlibStr
@@ -203,14 +205,14 @@ def main():
 
     #Image Quality Assessment
     runIQA = args.xIQA
-    if not runIQA:
+    if not runIQA and not config["iqa_model_name"]:
         iqa_model_name = ""
     if args.IQAOcampo:
         iqa_model_name = ocampoStr
     brisque_threshold = args.brisqueThreshold[0]
 
     runBlur = args.xBlurDetection
-    if not runBlur:
+    if not runBlur and not config["blur_model_name"]:
         blur_model_name = ""
     if args.BSVD:
         blur_model_name = svdStr
