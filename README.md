@@ -268,7 +268,7 @@ Demonstration videos for the HOST-ATS dashboard are available on YouTube:
 - Husa et al., HOST-ATS: Automatic Thumbnail Selection with Dashboard-Controlled ML Pipeline and Dynamic User Survey --> per-frame priority assignment simplified in Figure 4 (poster [here](https://drive.google.com/file/d/138gzsiznlKS8GrI7jMHKQKLYgIgrRCzq/view?usp=share_link))
 
 
-## Overview diagram
+## Overview
 
 ![host-ats-internal-diagram--20221105](https://user-images.githubusercontent.com/7714406/200123855-8ee92d38-1e1c-46bc-947f-1a33e90c1b9c.png)
 
@@ -277,16 +277,20 @@ Demonstration videos for the HOST-ATS dashboard are available on YouTube:
 Dynamic list of configuration parameters: https://docs.google.com/spreadsheets/d/1LUru6R3vtGK2iG3Tp6Nywqwjhh6x0FluhStGS2NcOTc/
 --> [Configuration](https://github.com/simulamet-host/host-ats-internal/blob/main/README.md#configuration) section above will be updated per release according to this spreadsheet
 
-## CLI
+## Running CLI
 ``python create_thumbnail.py <path-config-json> -<parameter> <value>``
 
-## Docker
+## Running Docker
 Public image: https://hub.docker.com/r/malekhammou24/host-ats
 
 1. Pull the image `docker pull malekhammou24/host-ats`
 2. Inside your working directory, create a folder containing your video(s)
 3. Run `docker run -d --name <container-name> -v <videos-folder-path>:data/videos malekhammou24/host-ats`
 4- Run `docker cp <container-name>:/results .` to get the results in your working directory
+
+## Analysis
+
+Colab notebook: https://colab.research.google.com/drive/1XcGPhDUCw3OjQkT-inrkTGvKWgjS-P7l?usp=share_link
 
 ## Next Steps
 **Configuration:**
