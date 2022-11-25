@@ -1,7 +1,8 @@
 {
-    "destination":"../data/videos",
+    "inputPath":"host-ats/input",
+    "outputPath":"host-ats/output",
     "close_up_threshold" : 0.75,
-    "totalFramesToExtract" : 50,
+    "totalFramesToExtract" : 55,
     "faceDetModel" : "dnn",
     "framerateExtract" : null,
     "fpsExtract" : null,
@@ -21,5 +22,7 @@
     "blur_model_name" : "laplacian",
     "svd_threshold" : 0.60,
     "laplacian_threshold" : 1000,
-    "filename_output" : ""
+    "filename_output" : "",
+    "performanceAnalysis":false,
+    "thumbnailCount":4
     }
