@@ -646,8 +646,9 @@ def get_static(video_path, secondExtract, downscaleOutput, outputFolder):
 
 
 def predictBrisque(image_path):
-    img = BRISQUE(image_path ,url=False)
-    brisqueScore = img.score()
+    img = cv2.imread(image_path)
+    brisquePredictor = BRISQUE(url=False)
+    brisqueScore = brisquePredictor.score(np.asarray(img))
     return brisqueScore
 
 def estimate_blur_svd(image_file, sv_num=10):
