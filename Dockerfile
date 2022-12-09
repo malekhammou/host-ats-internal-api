@@ -10,5 +10,6 @@ RUN pip3 install -r requirements.txt
 
 COPY . .
 
-ENTRYPOINT ["/bin/bash", "/bootstrap.sh"]
+WORKDIR /code
 
+CMD [ "python3", "create_thumbnail.py","../data/videos" ]
