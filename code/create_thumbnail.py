@@ -272,10 +272,6 @@ def main():
         svd_threshold = args.svdThreshold[0]
     if args.laplacianThreshold:
         laplacian_threshold = args.laplacianThreshold[0]
-    if args.input:
-        inputPath=args.input[0]
-    if args.output:
-        outputPath=args.output[0]
 
     processFolder = False
     processFile = False
