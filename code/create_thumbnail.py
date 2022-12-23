@@ -61,8 +61,6 @@ numFramesExtracted=0
 def main():
     parser = argparse.ArgumentParser(description="Thumbnail generator")
     parser.add_argument('-conf','--configuration', type=str,default="../config.json", required=False ,help="Full path to a configuration file formatted as JSON.")
-    parser.add_argument('-in','--input', type=str, required=False ,help="Destination of the input to be processed. Can be file or folder.")
-    parser.add_argument('-out','--output', type=str, required=False ,help="Destination of the output folder.")
     parser.add_argument('-iter','--iteration', type=int, required=False,help='Number of executions per configuration')
     parser.add_argument('-pa','--performanceAnalysis', type=bool,default=False,  required=False ,help="run performance analyis.")
     parser.add_argument("-tc", "--thumbnailCount", type=above_zero_int,  nargs=1, help="Number of desired output thumbnails " )
