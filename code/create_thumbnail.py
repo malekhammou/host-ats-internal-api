@@ -21,7 +21,7 @@ import sys
 from brisque import BRISQUE
 import json
 #Paths
-model_folder = "../data/models/"
+model_folder = "../models/"
 frames_folder_outer = "../results/temp"
 thumbnail_output = "../results/"
 #Models
