@@ -117,8 +117,8 @@ def main():
     args = parser.parse_args()
     configuration = args.configuration
     defaultConfigFilePath="../default-config.json" 
-    fallbackConfigFilePath="../default.json"
-    configFilePath=configuration if os.path.exists(configuration) else fallbackConfigFilePath if os.path.exists(fallbackConfigFilePath) else defaultConfigFilePath 
+    localConfigFilePath="../config.json"
+    configFilePath=configuration if os.path.exists(configuration) else localConfigFilePath if os.path.exists(localConfigFilePath) else defaultConfigFilePath 
     configFile = open(configFilePath)
     config = json.load(configFile)
     defaultConfigFile=open(defaultConfigFilePath)
