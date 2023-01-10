@@ -12,5 +12,7 @@
     "downscaleOutput" : 1.0,
     "annotationSecond" : null,
     "beforeAnnotationSecondsCut" : 10,
-    "afterAnnotationSecondsCut" : 40
+    "afterAnnotationSecondsCut" : 40,
+    "thumbnailCount":4
+
     }
