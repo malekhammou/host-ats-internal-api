@@ -1,6 +1,6 @@
 {
-    "inputPath":"host-ats/input",
-    "outputPath":"host-ats/output",
+    "inputPath":"input",
+    "outputPath":"output",
     "close_up_threshold" : 0.75,
     "totalFramesToExtract" : 55,
     "faceDetModel" : "dnn",
