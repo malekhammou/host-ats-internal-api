@@ -215,10 +215,10 @@ def main():
         downscaleOutput = args.downscaleOutputImage[0]
 
     #Logo detection
-    if args.xLogoDetection:
-        runLogoDetection = args.xLogoDetection
+    runLogoDetection = args.xLogoDetection
     if not runLogoDetection and not finalConfig["logo_model_name"] :
         logo_model_name = ""
+        runLogoDetection=False
     if args.LEliteserien2019:
         logo_model_name = eliteserienStr
     elif args.LSoccernet:
@@ -227,20 +227,20 @@ def main():
         logo_threshold = args.logoThreshold[0]
 
     #Close-up detection
-    if args.xCloseupDetection:
-        runCloseUpDetection = args.xCloseupDetection
+    runCloseUpDetection = args.xCloseupDetection
     if not runCloseUpDetection and not finalConfig["close_up_model_name"]:
         close_up_model_name = ""
+        runCloseUpDetection=False
     if args.CSurma:
         close_up_model_name = surmaStr
     if args.closeUpThreshold:
         close_up_threshold = args.closeUpThreshold[0]
 
     #Face detection
-    if args.xFaceDetection:
-        runFaceDetection = args.xFaceDetection
+    runFaceDetection = args.xFaceDetection
     if not runFaceDetection and not finalConfig["faceDetModel"]:
         faceDetModel = ""
+        runFaceDetection=False
     if args.dlib:
         faceDetModel = dlibStr
     elif args.haar:
@@ -251,19 +251,19 @@ def main():
         faceDetModel = dnnStr
 
     #Image Quality Assessment
-    if args.xIQA:
-        runIQA = args.xIQA
+    runIQA = args.xIQA
     if not runIQA and not finalConfig["iqa_model_name"]:
         iqa_model_name = ""
+        runIQA=False
     if args.IQAOcampo:
         iqa_model_name = ocampoStr
     if args.brisqueThreshold:
         brisque_threshold = args.brisqueThreshold[0]
-
-    if args.xBlurDetection:
-        runBlur = args.xBlurDetection
+    #Blur detection
+    runBlur = args.xBlurDetection
     if not runBlur and not finalConfig["blur_model_name"]:
         blur_model_name = ""
+        runBlur=False
     if args.BSVD:
         blur_model_name = svdStr
     elif args.BLaplacian:
@@ -272,6 +272,18 @@ def main():
         svd_threshold = args.svdThreshold[0]
     if args.laplacianThreshold:
         laplacian_threshold = args.laplacianThreshold[0]
+
+    # START SANITY CHECK -- WHICH MODULES ARE GOING TO RUN
+    print("----------------------------")
+    print(f"**SC** runBlur is set to {runBlur} with {blur_model_name}")
+    print(f"**SC** runIQA is set to {runIQA} with {iqa_model_name}")
+    print(f"**SC** runFaceDetection is set to {runFaceDetection} with {faceDetModel}")
+    print(f"**SC** runCloseUpDetection is set to {runCloseUpDetection} with {close_up_model_name}")
+    print(f"**SC** runLogoDetection is set to {runLogoDetection} with {logo_model_name}")
+    print("----------------------------")
+
+
+
 
     processFolder = False
     processFile = False
@@ -441,13 +453,17 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
     priority_images = groupFrames(frames_folder, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runLogoDetection, runCloseUpDetection, close_up_threshold, logo_threshold)
 
     finalThumbnail = ""
-
+    print(f"**DBG** PRIORITY IMAGES ARRAY ==> {priority_images}")
     for priority in priority_images:
+        print(f"**DBG** PRIORITY  ==> {priority}")
         if finalThumbnail != "":
             break
         priority = dict(sorted(priority.items(), key=lambda item: item[1], reverse=True))
+        print(f"**DBG** SORTED PRIORITY ==> {priority}")
+
 
         blur_filtered = []
+        print(f"**DBG** blur filtered array has been initialized")
         if runBlur:
             blurDetectionStarts=time.time()
             if blur_model_name == svdStr:
@@ -467,6 +483,7 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
 
 
         else:
+            print(f"**DBG** NO BLUR DETECTION BLOC!!")
             for image in priority:
                 blur_filtered.append(image)
 
@@ -492,6 +509,7 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
                 iq_predicition=IQAEnds-IQAStarts
 
         else:
+            print(f"**DBG** DO NOT RUN IQA BLOC")
             for image in blur_filtered:
                 finalThumbnail = image
                 break
@@ -552,10 +570,12 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
             frame = cv2.resize(frame, dsize)
         cv2.imwrite(os.path.join(outputFolder , newName), frame)
         print("Thumbnail created. Filename: " + newName)
-
+        print("***The thumbnail count is set to ",thumbnailCount)
         if thumbnailCount>1:
-            print(blur_filtered[:thumbnailCount])
-            for item in blur_filtered[:thumbnailCount]:
+            print( "***The length of blur filtered array is",len(blur_filtered))
+            print("***Blur filtered array***",blur_filtered)
+            print(f'the {thumbnailCount} obtained frames are {blur_filtered[:thumbnailCount]}')
+            for item in blur_filtered[:thumbnailCount-1]:
                 frameNumber=int(item.split("/")[-1].split(".")[0].replace("frame",""))
                 cam.set(1, frameNumber)
                 ret, frame = cam.read()
