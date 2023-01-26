@@ -419,8 +419,11 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
 
     if fpsExtract:
         totalFramesToExtract = math.floor(remainingSeconds * fpsExtract)
+        print(f"Total frames to be extracted ==>{totalFramesToExtract} ")
     if framerateExtract:
         totalFramesToExtract = math.floor(remainingFrames * framerateExtract)
+        print(f"Total frames to be extracted ==>{totalFramesToExtract} ")
+
     currentframe = 0
     # frames to skip
     frame_skip = (totalFrames-(cutStartFrames + cutEndFrames))//totalFramesToExtract
