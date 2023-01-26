@@ -314,11 +314,14 @@ def main():
         return
     loadingModelsStarts=time.time()
     if close_up_model_name == surmaStr:
+        print("Loading Surma Model for close up detection module...")
         close_up_model = keras.models.load_model(surma_closeup_model)
 
     if logo_model_name == eliteserienStr:
+        print("Loading eliteserien Model for logo detection module...")
         logo_detection_model = keras.models.load_model(eliteserien_logo_model)
     elif logo_model_name == soccernetStr:
+        print("Loading soccernet Model for logo detection module...")
         logo_detection_model = keras.models.load_model(soccernet_logo_model)
     loadingModelsEnds=time.time()
     models_loading=loadingModelsEnds-loadingModelsStarts
