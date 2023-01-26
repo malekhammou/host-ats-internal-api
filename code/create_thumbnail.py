@@ -252,7 +252,7 @@ def main():
 
     #Image Quality Assessment
     runIQA = args.xIQA
-    if not runIQA and not finalConfig["iqa_model_name"]:
+    if not runIQA or finalConfig["iqa_model_name"]=="":
         iqa_model_name = ""
         runIQA=False
     if args.IQAOcampo:
@@ -261,7 +261,7 @@ def main():
         brisque_threshold = args.brisqueThreshold[0]
     #Blur detection
     runBlur = args.xBlurDetection
-    if not runBlur and not finalConfig["blur_model_name"]:
+    if not runBlur or  finalConfig["blur_model_name"]=="":
         blur_model_name = ""
         runBlur=False
     if args.BSVD:
