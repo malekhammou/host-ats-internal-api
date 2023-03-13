@@ -544,7 +544,7 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
         "frameOffset":(duration*int(item.split("/")[-1].split(".")[0].replace("frame","")))/totalFrames} for item in blur_filtered[:thumbnailCount+1]]
         imageName = finalThumbnail.split("/")[-1].split(".")[0]
         frameNum = int(imageName.replace("frame", ""))
-        newName=newName.split(".")[0]+f'_{len(os.listdir(outputFolder))+1}'+'.'+newName.split(".")[-1]
+        newName=newName.split(".")[0]+f'_{len(os.listdir(outputFolder))}'+'.'+newName.split(".")[-1] if len(os.listdir(outputFolder))>=1  else newName.split(".")[0]+f'_1'+'.'+newName.split(".")[-1]
         metadata = {
             "filename":video_filename,
             "duration":duration, "fps":fps,"frameSkip":frame_skip,
