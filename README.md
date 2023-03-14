@@ -259,3 +259,67 @@ Demonstration videos for the HOST-ATS dashboard are available on YouTube:
 
 - Andreas Husa, Cise Midoglu, Malek Hammou, Pål Halvorsen, Michael A. Riegler. _HOST-ATS: Automatic Thumbnail Selection with Dashboard-Controlled ML Pipeline and Dynamic User Survey_. MMSys 2022. DOI: [10.1145/3524273.3532908](https://doi.org/10.1145/3524273.3532908).
 
+----------
+
+# INTERNAL
+
+- Public repo: https://github.com/simula/host-ats
+- Husa et al., Automatic Thumbnail Selection for Soccer Videos using Machine Learning --> slightly surprising user study results
+- Husa et al., HOST-ATS: Automatic Thumbnail Selection with Dashboard-Controlled ML Pipeline and Dynamic User Survey --> per-frame priority assignment simplified in Figure 4 (poster [here](https://drive.google.com/file/d/138gzsiznlKS8GrI7jMHKQKLYgIgrRCzq/view?usp=share_link))
+
+
+## Overview
+
+![host-ats-internal-diagram--20221105](https://user-images.githubusercontent.com/7714406/200123855-8ee92d38-1e1c-46bc-947f-1a33e90c1b9c.png)
+
+## Configuration
+
+Dynamic list of configuration parameters: https://docs.google.com/spreadsheets/d/1LUru6R3vtGK2iG3Tp6Nywqwjhh6x0FluhStGS2NcOTc/
+--> [Configuration](https://github.com/simulamet-host/host-ats-internal/blob/main/README.md#configuration) section above will be updated per release according to this spreadsheet
+
+## Running CLI
+``python create_thumbnail.py <path-config-json> -<parameter> <value>``
+
+## Running Docker
+Public image: https://hub.docker.com/r/malekhammou24/host-ats
+
+1. Pull the image `docker pull malekhammou24/host-ats`
+2. Inside your working directory, create a folder containing your video(s)
+3. Run `docker run -d --name <container-name> -v <videos-folder-path>:data/videos malekhammou24/host-ats`
+4- Run `docker cp <container-name>:/results .` to get the results in your working directory
+
+## Analysis
+
+Colab notebook: https://colab.research.google.com/drive/1XcGPhDUCw3OjQkT-inrkTGvKWgjS-P7l?usp=share_link
+
+## Next Steps
+**Configuration:**
+- Full configurability (all parameters listed here: https://github.com/simula/host-ats#configuration, and more)
+- Add the number of thumbnail candidates to be provided in the output ("X" below) as a configuration parameter
+
+**Outputs:**
+- Provide more metadata about the selected thumbnail, as well as other thumbnail candidates
+- Top X thumbnail candidates, instead of single/all, should be listed in the output file and provided as images
+- Output filenames can use timestamps to avoid unwanted overwrites
+
+**Logic and modules:**
+- Preprocessing: Remove bad quality frames/thumbnails first
+- Individual customer profiles: (to support different priority list and ruleset for thumbnail selection) since there are many different preferences in terms of what people think are good images, we should have a “model” to select each of these preferences, then it is up to the customer to make a ruleset to prioritize
+- Content analysis: Implement alternative models in the existing content analysis modules (middle steps of the pipeline)
+   - e.g., [YOLOv4](https://arxiv.org/abs/2004.10934) 
+- Postprocessing: 
+   - Search literature for image quality enhancement models using ML
+   - Implement an additional step in the pipeline which improves the overall image quality of the selected thumbnail
+   - Modifications that can be considered: deblurring, cropping, ...
+
+**Testing:**
+- Support multi-config in the core pipeline (CLI) and Docker
+- Create test suite which can run the Docker multiple times with different configurations, using a single JSON, based on the multi-config (as an example, see "multi_config" option in https://github.com/MONROE-PROJECT/Experiments/tree/master/experiments/nettest/nettest-client) 
+- Wrapper script for automated testing with different values of the following:
+   - Different #frames (then compare time used for each module + overall)
+   - Annotation timestamp, clip before annotation, clip after annotation, and downsampling ratio
+- Store the results as described in https://github.com/simulamet-host/host-ats-internal/issues/6, with additional timing information (how long did each module take)
+- Evaluate the output thumbnails: 
+   - subjectively (i.e., we look at them ourselves, and we make a user study)
+   - objectively (e.g., BRISQUE score, or some other metric)
+

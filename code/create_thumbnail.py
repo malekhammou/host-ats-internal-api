@@ -19,7 +19,7 @@ import psutil
 import tensorflow as tf
 import sys
 from brisque import BRISQUE
-import json
+
 #Paths
 model_folder = "../models/"
 frames_folder_outer = "../results/temp"
@@ -59,11 +59,38 @@ total=0
 #frames extracted
 numFramesExtracted=0
 def main():
+    #Default values
+    close_up_threshold = 0.75
+    totalFramesToExtract = 50
+    faceDetModel = dnnStr
+    framerateExtract = None
+    fpsExtract = None
+    cutStartSeconds = 0
+    cutEndSeconds = 0
+    downscaleOnProcessing = 0.5
+    downscaleOutput = 1.0
+    annotationSecond = None
+    beforeAnnotationSecondsCut = 10
+    afterAnnotationSecondsCut = 40
+    staticThumbnailSec = None
+    logo_model_name = eliteserienStr
+    logo_detection_model = ""
+    logo_threshold = 0.1
+    close_up_model_name = surmaStr
+    close_up_model = ""
+    iqa_model_name = ocampoStr
+    brisque_threshold = 35
+    blur_model_name = laplacianStr
+    svd_threshold = 0.60
+    laplacian_threshold = 1000
+    filename_output = ""
+    
     parser = argparse.ArgumentParser(description="Thumbnail generator")
     parser.add_argument('-conf','--configuration', type=str,default="../config.json", required=False ,help="Full path to a configuration file formatted as JSON.")
+    parser.add_argument('-in','--input', type=str, required=False ,help="Destination of the input to be processed. Can be file or folder.")
+    parser.add_argument('-out','--output', type=str, required=False ,help="Destination of the output folder.")
     parser.add_argument('-iter','--iteration', type=int, required=False,help='Number of executions per configuration')
-    parser.add_argument('-pa','--performanceAnalysis', type=bool,default=False,  required=False ,help="run performance analyis.")
-    parser.add_argument("-tc", "--thumbnailCount", type=above_zero_int,  nargs=1, help="Number of desired output thumbnails " )
+
     #Logo detection models
     logoGroup = parser.add_mutually_exclusive_group(required=False)
     logoGroup.add_argument("-LEliteserien2019", action='store_true', help="Surma model used for logo detection, trained on Eliteserien 2019.")
@@ -96,13 +123,13 @@ def main():
     faceGroup.add_argument("-xf", "--xFaceDetection", default=True, action="store_false", help="Don't run the face detection.")
 
     #Flags fixing default values
-    parser.add_argument("-cuthr", "--closeUpThreshold", type=restricted_float, nargs=1, help="The threshold value for the close-up detection model. The value must be between 0 and 1. The default is: " )
-    parser.add_argument("-brthr", "--brisqueThreshold", type=float, nargs=1, help="The threshold value for the image quality predictor model. The default is: " )
-    parser.add_argument("-logothr", "--logoThreshold", type=restricted_float,  nargs=1, help="The threshold value for the logo detection model. The value must be between 0 and 1. The default value is: ")
-    parser.add_argument("-svdthr", "--svdThreshold", type=restricted_float,  nargs=1, help="The threshold value for the SVD blur detection. The default value is: " )
-    parser.add_argument("-lapthr", "--laplacianThreshold", type=float,  nargs=1, help="The threshold value for the Laplacian blur detection. The default value is: " )
-    parser.add_argument("-css", "--cutStartSeconds", type=positive_int,  nargs=1, help="The number of seconds to cut from start of the video. These seconds of video will not be processed in the thumbnail selection. The default value is: " )
-    parser.add_argument("-ces", "--cutEndSeconds", type=positive_int,  nargs=1, help="The number of seconds to cut from the end of the video. These seconds of video will not be processed in the thumbnail selection. The default value is: " )
+    parser.add_argument("-cuthr", "--closeUpThreshold", type=restricted_float, default=[close_up_threshold], nargs=1, help="The threshold value for the close-up detection model. The value must be between 0 and 1. The default is: " + str(close_up_threshold))
+    parser.add_argument("-brthr", "--brisqueThreshold", type=float, default=[brisque_threshold], nargs=1, help="The threshold value for the image quality predictor model. The default is: " + str(brisque_threshold))
+    parser.add_argument("-logothr", "--logoThreshold", type=restricted_float, default=[logo_threshold], nargs=1, help="The threshold value for the logo detection model. The value must be between 0 and 1. The default value is: " + str(logo_threshold))
+    parser.add_argument("-svdthr", "--svdThreshold", type=restricted_float, default=[svd_threshold], nargs=1, help="The threshold value for the SVD blur detection. The default value is: " + str(svd_threshold))
+    parser.add_argument("-lapthr", "--laplacianThreshold", type=float, default=[laplacian_threshold], nargs=1, help="The threshold value for the Laplacian blur detection. The default value is: " + str(laplacian_threshold))
+    parser.add_argument("-css", "--cutStartSeconds", type=positive_int, default=[cutStartSeconds], nargs=1, help="The number of seconds to cut from start of the video. These seconds of video will not be processed in the thumbnail selection. The default value is: " + str(cutStartSeconds))
+    parser.add_argument("-ces", "--cutEndSeconds", type=positive_int, default=[cutEndSeconds], nargs=1, help="The number of seconds to cut from the end of the video. These seconds of video will not be processed in the thumbnail selection. The default value is: " + str(cutEndSeconds))
     numFrameExtractGroup = parser.add_mutually_exclusive_group(required = False)
     numFrameExtractGroup.add_argument("-nfe", "--numberOfFramesToExtract", type=above_zero_int,  nargs=1, help="Number of frames to be extracted from the video for the thumbnail selection process. The default is: " )
     numFrameExtractGroup.add_argument("-fre", "--framerateToExtract", type=restricted_float,  nargs=1, help="The framerate wanted to be extracted from the video for the thumbnail selection process.")
@@ -117,8 +144,8 @@ def main():
     args = parser.parse_args()
     configuration = args.configuration
     defaultConfigFilePath="../default-config.json" 
-    localConfigFilePath="../config.json"
-    configFilePath=configuration if os.path.exists(configuration) else localConfigFilePath if os.path.exists(localConfigFilePath) else defaultConfigFilePath 
+    fallbackConfigFilePath="../default.json"
+    configFilePath=configuration if os.path.exists(configuration) else fallbackConfigFilePath if os.path.exists(fallbackConfigFilePath) else defaultConfigFilePath 
     configFile = open(configFilePath)
     config = json.load(configFile)
     defaultConfigFile=open(defaultConfigFilePath)
@@ -172,33 +199,20 @@ def main():
 
     
     iteration=args.iteration
-    if args.performanceAnalysis:
-     performanceAnalysis = args.performanceAnalysis
-
-    if args.thumbnailCount:
-     thumbnailCount = args.thumbnailCount[0]
-
-    if args.staticThumbnailSec:
-     staticThumbnailSec = args.staticThumbnailSec[0]
-    if args.outputFilename:
-     filename_output = args.outputFilename[0]
+    destination = args.destination[0]
+    staticThumbnailSec = args.staticThumbnailSec[0]
+    filename_output = args.outputFilename[0]
 
     #Trimming
-    if args.annotationSecond:
-        annotationSecond = args.annotationSecond[0]
-    if args.beforeAnnotationSecondsCut:
-        beforeAnnotationSecondsCut = args.beforeAnnotationSecondsCut[0]
-    if args.afterAnnotationSecondsCut:
-        afterAnnotationSecondsCut = args.afterAnnotationSecondsCut[0]
-    if args.cutStartSeconds:
-            cutEndSeconds = args.cutEndSeconds[0]
+    annotationSecond = args.annotationSecond[0]
+    beforeAnnotationSecondsCut = args.beforeAnnotationSecondsCut[0]
+    afterAnnotationSecondsCut = args.afterAnnotationSecondsCut[0]
+    cutStartSeconds = args.cutStartSeconds[0]
+    cutEndSeconds = args.cutEndSeconds[0]
     #Down-sampling
-    if args.numberOfFramesToExtract:
-        totalFramesToExtract = args.numberOfFramesToExtract[0]
-    if args.framerateToExtract:
-        framerateExtract = args.framerateToExtract[0]
-    if args.fpsExtract:
-        fpsExtract = args.fpsExtract[0]
+    totalFramesToExtract = args.numberOfFramesToExtract[0]
+    framerateExtract = args.framerateToExtract[0]
+    fpsExtract = args.fpsExtract[0]
     if fpsExtract:
         totalFramesToExtract = None
         framerateExtract = None
@@ -209,13 +223,12 @@ def main():
         framerateExtract = None
         fpsExtract = None
     #Down-scaling
-    if args.downscaleProcessingImages:
-        downscaleOnProcessing = args.downscaleProcessingImages[0]
-    if args.downscaleOutputImage:
-        downscaleOutput = args.downscaleOutputImage[0]
+    downscaleOnProcessing = args.downscaleProcessingImages[0]
+    downscaleOutput = args.downscaleOutputImage[0]
 
     #Logo detection
-    runLogoDetection = args.xLogoDetection
+    if args.xLogoDetection:
+        runLogoDetection = args.xLogoDetection
     if not runLogoDetection and not finalConfig["logo_model_name"] :
         logo_model_name = ""
         runLogoDetection=False
@@ -223,21 +236,21 @@ def main():
         logo_model_name = eliteserienStr
     elif args.LSoccernet:
         logo_model_name = soccernetStr
-    if args.logoThreshold:
-        logo_threshold = args.logoThreshold[0]
+    logo_threshold = args.logoThreshold[0]
 
     #Close-up detection
-    runCloseUpDetection = args.xCloseupDetection
+    if args.xCloseupDetection:
+        runCloseUpDetection = args.xCloseupDetection
     if not runCloseUpDetection and not finalConfig["close_up_model_name"]:
         close_up_model_name = ""
         runCloseUpDetection=False
     if args.CSurma:
         close_up_model_name = surmaStr
-    if args.closeUpThreshold:
-        close_up_threshold = args.closeUpThreshold[0]
+    close_up_threshold = args.closeUpThreshold[0]
 
     #Face detection
-    runFaceDetection = args.xFaceDetection
+    if args.xFaceDetection:
+        runFaceDetection = args.xFaceDetection
     if not runFaceDetection and not finalConfig["faceDetModel"]:
         faceDetModel = ""
         runFaceDetection=False
@@ -251,17 +264,19 @@ def main():
         faceDetModel = dnnStr
 
     #Image Quality Assessment
-    runIQA = args.xIQA
-    if not runIQA or finalConfig["iqa_model_name"]=="":
+    if args.xIQA:
+        runIQA = args.xIQA
+    if not runIQA and not finalConfig["iqa_model_name"]:
         iqa_model_name = ""
         runIQA=False
     if args.IQAOcampo:
         iqa_model_name = ocampoStr
     if args.brisqueThreshold:
         brisque_threshold = args.brisqueThreshold[0]
-    #Blur detection
-    runBlur = args.xBlurDetection
-    if not runBlur or  finalConfig["blur_model_name"]=="":
+
+    if args.xBlurDetection:
+        runBlur = args.xBlurDetection
+    if not runBlur and not finalConfig["blur_model_name"]:
         blur_model_name = ""
         runBlur=False
     if args.BSVD:
@@ -272,45 +287,37 @@ def main():
         svd_threshold = args.svdThreshold[0]
     if args.laplacianThreshold:
         laplacian_threshold = args.laplacianThreshold[0]
-
-    # START SANITY CHECK -- WHICH MODULES ARE GOING TO RUN
-    print("----------------------------")
-    print(f"**SC** runBlur is set to {runBlur} with {blur_model_name}")
-    print(f"**SC** runIQA is set to {runIQA} with {iqa_model_name}")
-    print(f"**SC** runFaceDetection is set to {runFaceDetection} with {faceDetModel}")
-    print(f"**SC** runCloseUpDetection is set to {runCloseUpDetection} with {close_up_model_name}")
-    print(f"**SC** runLogoDetection is set to {runLogoDetection} with {logo_model_name}")
-    print("----------------------------")
-
-
-
+    if args.input:
+        inputPath=args.input[0]
+    if args.output:
+        outputPath=args.output[0]
 
     processFolder = False
     processFile = False
-    if os.path.isdir(inputPath):
+    if os.path.isdir(destination):
         processFolder = True
-        if inputPath[-1] != "/":
-            inputPath = inputPath + "/"
+        if destination[-1] != "/":
+            destination = destination + "/"
         print("is folder")
-    elif os.path.isfile(inputPath):
+    elif os.path.isfile(destination):
         processFile = True
         print("is file")
-        name, ext = os.path.splitext(inputPath)
+        name, ext = os.path.splitext(destination)
         if ext != ".ts" and ext != ".mp4" and ext != ".mkv":
             raise Exception("The input file is not a video file")
     else:
         raise Exception("The input destination was neither file or directory")
 
     try:
-        if not os.path.exists(outputPath):
-            os.mkdir(outputPath)
+        if not os.path.exists(thumbnail_output):
+            os.mkdir(thumbnail_output)
 
     except OSError:
         print("Error: Couldn't create thumbnail output directory")
         return
 
     if staticThumbnailSec:
-        get_static(inputPath, staticThumbnailSec, downscaleOutput, thumbnail_output)
+        get_static(destination, staticThumbnailSec, downscaleOutput, thumbnail_output)
         return
     loadingModelsStarts=time.time()
     if close_up_model_name == surmaStr:
@@ -325,68 +332,99 @@ def main():
         logo_detection_model = keras.models.load_model(soccernet_logo_model)
     loadingModelsEnds=time.time()
     models_loading=loadingModelsEnds-loadingModelsStarts
-    def logMetrics():
-        total=frame_extraction+models_loading+logo_detection+closeup_detection+face_detection+blur_detection+iq_predicition
-        performanceMetrics={
-                "platform":platform.system(),
-                "date_time":datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-                "cpu_logical":psutil.cpu_count(logical=True),
-                "cpu_physical":psutil.cpu_count(logical=False),
-                "cpu_max_freq(Mhz)":psutil.cpu_freq().max,
-                "total_ram(GB)":"{0:.2f}".format(psutil.virtual_memory().total/1000000000),
-                "available_ram(GB)":"{0:.2f}".format(psutil.virtual_memory().available/1000000000),
-                "gpu_acceleration":tf.test.gpu_device_name() if tf.test.gpu_device_name() else "disabled",
-                "args":"".join(sys.argv[1:]).split("-"),
-                "framesToExtract":totalFramesToExtract,
-                "downscaleOnProcessing":downscaleOnProcessing,
-                "logo_detection_model":logo_model_name,
-                "closeup_detection_model":close_up_model_name,
-                "face_detection_model":faceDetModel,
-                "blur_detection_model":blur_model_name,
-                "iq_prediction_model":iqa_model_name,
-                "frame_extraction_time":"{0:.3f}".format(frame_extraction) if frame_extraction>0 else "disabled",
-                "logo_detection_time":"{0:.3f}".format(logo_detection)if logo_detection>0 else "disabled",
-                "closeup_detection_time":"{0:.3f}".format(closeup_detection)if closeup_detection>0 else "disabled",
-                "face_detection_time":"{0:.3f}".format(face_detection)if face_detection>0 else "disabled",
-                "blur_detection_time":"{0:.3f}".format(blur_detection)if blur_detection>0 else "disabled",
-                "iq_prediction_time":"{0:.3f}".format(iq_predicition)if iq_predicition>0 else "disabled",
-                "models_loading_time":"{0:.3f}".format(models_loading) if models_loading>0 else "disabled",
-                "total_execution_time":"{0:.3f}".format(total),
-                "frames_extracted":numFramesExtracted,
-                "iteration":iteration
-                }
-        performanceMetricsFile= open("../host-ats-output.json","r")
-        data = json.load(performanceMetricsFile)
-        performanceMetricsFile.close()
-        performanceMetricsFile = open("../host-ats-output.json","w")
-        data["performanceMetrics"]=performanceMetrics
-        performanceMetricsFile.write(json.dumps(data))
-        performanceMetricsFile.close()
-    if processFile:
-        create_thumbnail(name + ext, downscaleOutput, downscaleOnProcessing, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runBlur, blur_model_name, svd_threshold, laplacian_threshold, runIQA, iqa_model_name, runLogoDetection, runCloseUpDetection, close_up_threshold, brisque_threshold, logo_threshold, cutStartSeconds, cutEndSeconds, totalFramesToExtract, fpsExtract, framerateExtract, annotationSecond, beforeAnnotationSecondsCut, afterAnnotationSecondsCut, filename_output,outputPath,thumbnailCount)
-        if performanceAnalysis==True:
-             logMetrics()
 
+    if processFile:
+        create_thumbnail(name + ext, downscaleOutput, downscaleOnProcessing, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runBlur, blur_model_name, svd_threshold, laplacian_threshold, runIQA, iqa_model_name, runLogoDetection, runCloseUpDetection, close_up_threshold, brisque_threshold, logo_threshold, cutStartSeconds, cutEndSeconds, totalFramesToExtract, fpsExtract, framerateExtract, annotationSecond, beforeAnnotationSecondsCut, afterAnnotationSecondsCut, filename_output)
         
     elif processFolder:
-        for f in os.listdir(inputPath):
+        for f in os.listdir(destination):
             name, ext = os.path.splitext(f)
             if ext == ".ts" or ext == ".mp4" or ext == ".mkv":
-                create_thumbnail(inputPath + name + ext, downscaleOutput , downscaleOnProcessing, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runBlur, blur_model_name, svd_threshold, laplacian_threshold, runIQA, iqa_model_name, runLogoDetection, runCloseUpDetection, close_up_threshold, brisque_threshold, logo_threshold, cutStartSeconds, cutEndSeconds, totalFramesToExtract, fpsExtract, framerateExtract, annotationSecond, beforeAnnotationSecondsCut, afterAnnotationSecondsCut, filename_output,outputPath,thumbnailCount)
-                if performanceAnalysis==True:
-                    logMetrics()
+                create_thumbnail(destination + name + ext, downscaleOutput , downscaleOnProcessing, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runBlur, blur_model_name, svd_threshold, laplacian_threshold, runIQA, iqa_model_name, runLogoDetection, runCloseUpDetection, close_up_threshold, brisque_threshold, logo_threshold, cutStartSeconds, cutEndSeconds, totalFramesToExtract, fpsExtract, framerateExtract, annotationSecond, beforeAnnotationSecondsCut, afterAnnotationSecondsCut, filename_output)
 
-    
+    def logMetrics(directory,fileName):
+     completeName = os.path.join(directory,fileName)
+     header=[#platform details
+             'platform',
+             'date_time',
+             'cpu_logical',
+             'cpu_physical',
+             'cpu_max_freq(Mhz)',
+             'total_ram(GB)',
+             'available_ram(GB)',
+             'gpu_acceleration',
+             #command line arguments
+             'args',
+             'framesToExtract',
+             'downscaleOnProcessing',
+             'logo_detection_model',
+             'closeup_detection_model',
+             'face_detection_model',
+             'blur_detection_model',
+             'iq_prediction_model',
+             #execution time
+             'frame_extraction_time',
+             'logo_detection_time',
+             'closeup_detection_time',
+             'face_detection_time',
+             'blur_detection_time',
+             'iq_prediction_time',
+             'models_loading_time',
+             'total_execution_time',
+             #sanity check
+             'frames_extracted',
+             'iteration'
+             ]
+     with open (completeName+".csv",'a+' ) as file:
+        writer = csv.writer(file)
+        if os.stat(completeName+".csv").st_size == 0:
+            writer.writerow(header)
+        #data to be written
+        total=frame_extraction+models_loading+logo_detection+closeup_detection+face_detection+blur_detection+iq_predicition
+        data=[
+              #platform details
+              platform.system(),
+              datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+              psutil.cpu_count(logical=True),
+              psutil.cpu_count(logical=False),
+              psutil.cpu_freq().max,
+              "{0:.2f}".format(psutil.virtual_memory().total/1000000000),
+              "{0:.2f}".format(psutil.virtual_memory().available/1000000000),
+              tf.test.gpu_device_name() if tf.test.gpu_device_name() else "disabled",
+              #command line arguments
+              "".join(sys.argv[1:]).split("-"),
+              totalFramesToExtract,
+              downscaleOnProcessing,
+              logo_model_name,
+              close_up_model_name,
+              faceDetModel,
+              blur_model_name,
+              iqa_model_name,
+              #execution time
+              "{0:.3f}".format(frame_extraction) if frame_extraction>0 else "disabled",
+              "{0:.3f}".format(logo_detection)if logo_detection>0 else "disabled",
+              "{0:.3f}".format(closeup_detection)if closeup_detection>0 else "disabled",
+              "{0:.3f}".format(face_detection)if face_detection>0 else "disabled",
+              "{0:.3f}".format(blur_detection)if blur_detection>0 else "disabled",
+              "{0:.3f}".format(iq_predicition)if iq_predicition>0 else "disabled",
+              "{0:.3f}".format(models_loading) if models_loading>0 else "disabled",
+              "{0:.3f}".format(total),
+              #sanity check
+              numFramesExtracted,
+              iteration
+              ]
+        writer.writerow(data)
+    logMetrics("../results","performance_metrics")
 
-def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runBlur, blur_model_name, svd_threshold, laplacian_threshold, runIQA, iqa_model_name, runLogoDetection, runCloseUpDetection, close_up_threshold, brisque_threshold, logo_threshold, cutStartSeconds, cutEndSeconds, totalFramesToExtract, fpsExtract, framerateExtract, annotationSecond, beforeAnnotationSecondsCut, afterAnnotationSecondsCut, filename_output,outputPath,thumbnailCount):
+def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runBlur, blur_model_name, svd_threshold, laplacian_threshold, runIQA, iqa_model_name, runLogoDetection, runCloseUpDetection, close_up_threshold, brisque_threshold, logo_threshold, cutStartSeconds, cutEndSeconds, totalFramesToExtract, fpsExtract, framerateExtract, annotationSecond, beforeAnnotationSecondsCut, afterAnnotationSecondsCut, filename_output):
     frameExtractionStarts=time.time()
     video_filename = video_path.split("/")[-1]
-    frames_folder_outer=outputPath+"/temp/"+video_filename.split(".")[0]+"/"
-    frames_folder = frames_folder_outer+"/frames/"
+    #frames_folder_outer = os.path.dirname(os.path.abspath(__file__)) + "/extractedFrames/"
+    frames_folder = frames_folder_outer + "/frames/"
     if not os.path.exists(frames_folder_outer):
-        os.makedirs(frames_folder_outer)
+        os.mkdir(frames_folder_outer)
     if not os.path.exists(frames_folder):
-        os.makedirs(frames_folder)
+        os.mkdir(frames_folder)
 
     #frames_folder = frames_folder_outer + "/"
 
@@ -395,6 +433,7 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
     cam = cv2.VideoCapture(video_path)
     totalFrames = int(cam.get(cv2.CAP_PROP_FRAME_COUNT)) - 1
     fps = cam.get(cv2.CAP_PROP_FPS)
+
     duration = totalFrames/fps
 
     if annotationSecond:
@@ -415,22 +454,17 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
     remainingFrames = totalFrames - (cutStartFrames + cutEndFrames)
     remainingSeconds = remainingFrames / fps
 
-
-
     if fpsExtract:
         totalFramesToExtract = math.floor(remainingSeconds * fpsExtract)
         print(f"Total frames to be extracted ==>{totalFramesToExtract} ")
     if framerateExtract:
         totalFramesToExtract = math.floor(remainingFrames * framerateExtract)
-        print(f"Total frames to be extracted ==>{totalFramesToExtract} ")
-
     currentframe = 0
     # frames to skip
     frame_skip = (totalFrames-(cutStartFrames + cutEndFrames))//totalFramesToExtract
     global numFramesExtracted
     numFramesExtracted = 0
     stopFrame = totalFrames-cutEndFrames
-
     while(True):
         # reading from frame
         ret,frame = cam.read()
@@ -451,13 +485,12 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
             img = cv2.resize(frame, dsize)
             cv2.imwrite(name, img)
             numFramesExtracted += 1
+
         currentframe += 1
-        frameExtractionEnds=time.time()
-        
+    frameExtractionEnds=time.time()
 
         
     priority_images = groupFrames(frames_folder, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runLogoDetection, runCloseUpDetection, close_up_threshold, logo_threshold)
-
     finalThumbnail = ""
     print(f"**DBG** PRIORITY IMAGES ARRAY ==> {priority_images}")
     for priority in priority_images:
@@ -528,7 +561,7 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
                 break
 
     if finalThumbnail != "":
-        outputFolder=outputPath+"/"+video_filename
+        outputFolder=thumbnail_output+"/"+video_filename
         if not os.path.exists(outputFolder):
              os.mkdir(outputFolder)
 
@@ -540,11 +573,10 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
             extension_added = len(newName.split(".")) == 2
             if not extension_added:
                 newName = newName + ".jpg"
-        topThumbnailCandidates= [{"frameNumber":int(item.split("/")[-1].split(".")[0].replace("frame","")),
-        "frameOffset":(duration*int(item.split("/")[-1].split(".")[0].replace("frame","")))/totalFrames} for item in blur_filtered[:thumbnailCount+1]]
+            
         imageName = finalThumbnail.split("/")[-1].split(".")[0]
         frameNum = int(imageName.replace("frame", ""))
-        newName=newName.split(".")[0]+f'_{len(os.listdir(outputFolder))}'+'.'+newName.split(".")[-1] if len(os.listdir(outputFolder))>=1  else newName.split(".")[0]+f'_1'+'.'+newName.split(".")[-1]
+        newName=newName.split(".")[0]+f'_{len(os.listdir(outputFolder))+1}'+'.'+newName.split(".")[-1]
         metadata = {
             "filename":video_filename,
             "duration":duration, "fps":fps,"frameSkip":frame_skip,
@@ -565,8 +597,6 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
         hostAtsSummary.write(json.dumps(data))
         hostAtsSummary.close()
 
-
-
         cam.set(1, frameNum)
         ret, frame = cam.read()
         if downscaleOutput != 1.0:
@@ -576,12 +606,10 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
             frame = cv2.resize(frame, dsize)
         cv2.imwrite(os.path.join(outputFolder , newName), frame)
         print("Thumbnail created. Filename: " + newName)
-        print("***The thumbnail count is set to ",thumbnailCount)
+
         if thumbnailCount>1:
-            print( "***The length of blur filtered array is",len(blur_filtered))
-            print("***Blur filtered array***",blur_filtered)
-            print(f'the {thumbnailCount} obtained frames are {blur_filtered[:thumbnailCount]}')
-            for item in blur_filtered[:thumbnailCount-1]:
+            print(blur_filtered[:thumbnailCount])
+            for item in blur_filtered[:thumbnailCount]:
                 frameNumber=int(item.split("/")[-1].split(".")[0].replace("frame",""))
                 cam.set(1, frameNumber)
                 ret, frame = cam.read()
@@ -608,7 +636,13 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
         # Release all space and windows once done
         cam.release()
         cv2.destroyAllWindows()
-        
+
+        #secInVid = (frameNum / totalFrames) * duration
+
+        try: 
+            shutil.rmtree(frames_folder)
+        except OSError as e:
+            print("Error: %s - %s." % (e.filename, e.strerror))
     global frame_extraction
     frame_extraction=frameExtractionEnds-frameExtractionStarts
     print("Done")
@@ -741,8 +775,8 @@ def get_static(video_path, secondExtract, downscaleOutput, outputFolder):
 
 def predictBrisque(image_path):
     img = cv2.imread(image_path)
-    brisquePredictor = BRISQUE()
-    brisqueScore = brisquePredictor.get_score(np.asarray(img))
+    brisquePredictor = BRISQUE(url=False)
+    brisqueScore = brisquePredictor.score(np.asarray(img))
     return brisqueScore
 
 def estimate_blur_svd(image_file, sv_num=10):
