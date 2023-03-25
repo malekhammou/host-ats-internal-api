@@ -20,6 +20,7 @@ import tensorflow as tf
 import sys
 from brisque import BRISQUE
 import json
+from collections import ChainMap
 #Paths
 model_folder = "../models/"
 frames_folder_outer = "../results/temp"
@@ -453,135 +454,56 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
             numFramesExtracted += 1
         currentframe += 1
         frameExtractionEnds=time.time()
-        
-
-        
+           
     priority_images = groupFrames(frames_folder, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runLogoDetection, runCloseUpDetection, close_up_threshold, logo_threshold)
-
-    finalThumbnail = ""
-    print(f"**DBG** PRIORITY IMAGES ARRAY ==> {priority_images}")
     for priority in priority_images:
-        print(f"**DBG** PRIORITY  ==> {priority}")
-        if finalThumbnail != "":
-            break
         priority = dict(sorted(priority.items(), key=lambda item: item[1], reverse=True))
-        print(f"**DBG** SORTED PRIORITY ==> {priority}")
+    #Drop 4th priority (logos)
+    priority_images_no_logos=priority_images[:3]
+    #Flatten all frames from different priorities
+    merged_priorities=dict(ChainMap(*priority_images_no_logos)).keys()
+    # 1-Frames that will be kept after running IQA AND blur detection.
+    # 2-A frame is kept only if it passes the tests of the two modules.
+    valid_frames = []
+    for frame in merged_priorities:
 
-
-        blur_filtered = []
-        print(f"**DBG** blur filtered array has been initialized")
-        if runBlur:
+        if runBlur and runIQA:
             blurDetectionStarts=time.time()
             if blur_model_name == svdStr:
-                for image in priority:
-                    blur_score = estimate_blur_svd(image)
-                    if blur_score < svd_threshold:
-                        blur_filtered.append(image)
+                    blur_score = estimate_blur_svd(frame)
+                    if blur_score > svd_threshold:
+                        break
             if blur_model_name == laplacianStr:
-                for image in priority:
-                    blur_score = estimate_blur_laplacian(image)
-                    if blur_score > laplacian_threshold:
-                        blur_filtered.append(image)
+                    blur_score = estimate_blur_laplacian(frame)
+                    if blur_score < laplacian_threshold:
+                        continue
             blurDetectionEnds=time.time()
-            if runBlur:
-                global blur_detection
-                blur_detection=blurDetectionEnds-blurDetectionStarts
-
-
-        else:
-            print(f"**DBG** NO BLUR DETECTION BLOC!!")
-            for image in priority:
-                blur_filtered.append(image)
-
-
-        if runIQA:
+            global blur_detection
+            blur_detection=blurDetectionEnds-blurDetectionStarts
             IQAStarts=time.time()
             if iqa_model_name == ocampoStr:
-                bestScore = 0
-                for image in blur_filtered:
-                    score = predictBrisque(image)
-                    if finalThumbnail == "":
-                        bestScore = score
-                        finalThumbnail = image
-                    if score < brisque_threshold:
-                        finalThumbnail = image
-                        break
-                    if score < bestScore:
-                        bestScore = score
-                        finalThumbnail = image
+                score = predictBrisque(frame)
+                if score < brisque_threshold:
+                    continue
+                
+            valid_frames.append(frame)
+
             IQAEnds=time.time()
             if runIQA:
                 global iq_predicition
                 iq_predicition=IQAEnds-IQAStarts
-
+            
         else:
-            print(f"**DBG** DO NOT RUN IQA BLOC")
-            for image in blur_filtered:
-                finalThumbnail = image
-                break
-    if finalThumbnail == "":
-        for priority in priority_images:
-            if finalThumbnail != "":
-                break
-            for image in priority:
-                finalThumbnail = image
-                break
-
-    if finalThumbnail != "":
-        outputFolder=outputPath+"/"+video_filename
-        if not os.path.exists(outputFolder):
-             os.mkdir(outputFolder)
-
-        newName = ""
-        if filename_output == "":
-            newName = video_filename.split(".")[0] + "_" + filename_additional +  ".jpg"
-        else:
-            newName = filename_output
-            extension_added = len(newName.split(".")) == 2
-            if not extension_added:
-                newName = newName + ".jpg"
-        topThumbnailCandidates= [{"frameNumber":int(item.split("/")[-1].split(".")[0].replace("frame","")),
-        "frameOffset":(duration*int(item.split("/")[-1].split(".")[0].replace("frame","")))/totalFrames} for item in blur_filtered[:thumbnailCount+1]]
-        imageName = finalThumbnail.split("/")[-1].split(".")[0]
-        frameNum = int(imageName.replace("frame", ""))
-        newName=newName.split(".")[0]+f'_{len(os.listdir(outputFolder))}'+'.'+newName.split(".")[-1] if len(os.listdir(outputFolder))>=1  else newName.split(".")[0]+f'_1'+'.'+newName.split(".")[-1]
-        metadata = {
-            "filename":video_filename,
-            "duration":duration, "fps":fps,"frameSkip":frame_skip,
-                 "totalFrames":totalFrames,
-                 "selectedThumbnailOffset":(duration*frameNum)/totalFrames,
-                 "selectedThumbnailFrame":frameNum,
-                 "topThumbnailCandidates":topThumbnailCandidates}
-        jsonString = json.dumps(metadata)
-        jsonOutputFile=video_filename.split(".")[0]
-        jsonFile = open(f"{outputFolder}/{jsonOutputFile}.json", "w")
-        jsonFile.write(jsonString)
-        jsonFile.close()
-        hostAtsSummary = open(f"../host-ats-output.json","r")
-        data = json.load(hostAtsSummary)
-        hostAtsSummary.close()
-        hostAtsSummary = open(f"../host-ats-output.json","w")
-        data["output"].append(metadata)
-        hostAtsSummary.write(json.dumps(data))
-        hostAtsSummary.close()
+            # if blur and IQA modules are disabled, we keep the frame.
+            for frame in merged_priorities:
+                valid_frames.append(frame)
 
 
+    outputFolder=outputPath+"/"+video_filename
+    if not os.path.exists(outputFolder):
+        os.mkdir(outputFolder)
 
-        cam.set(1, frameNum)
-        ret, frame = cam.read()
-        if downscaleOutput != 1.0:
-            width = int(frame.shape[1] * downscaleOutput)
-            height = int(frame.shape[0] * downscaleOutput)
-            dsize = (width, height)
-            frame = cv2.resize(frame, dsize)
-        cv2.imwrite(os.path.join(outputFolder , newName), frame)
-        print("Thumbnail created. Filename: " + newName)
-        print("***The thumbnail count is set to ",thumbnailCount)
-        if thumbnailCount>1:
-            print( "***The length of blur filtered array is",len(blur_filtered))
-            print("***Blur filtered array***",blur_filtered)
-            print(f'the {thumbnailCount} obtained frames are {blur_filtered[:thumbnailCount]}')
-            for item in blur_filtered[:thumbnailCount-1]:
+    for item in valid_frames[:thumbnailCount]:
                 frameNumber=int(item.split("/")[-1].split(".")[0].replace("frame",""))
                 cam.set(1, frameNumber)
                 ret, frame = cam.read()
@@ -592,29 +514,11 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
                     frame = cv2.resize(frame, dsize)
                 newName = video_filename.split(".")[0] + "_" + filename_additional +"_"+ str(len(os.listdir(outputFolder)) )+ ".jpg"
                 cv2.imwrite(os.path.join(outputFolder ,newName), frame)
-                print("Thumbnail created. Filename: " + newName)
-
-
-
-
-
-
-
-
-
-
-
-
-        # Release all space and windows once done
-        cam.release()
-        cv2.destroyAllWindows()
-        
+                print("Thumbnails have been created." + newName)
+    cam.release()
+    cv2.destroyAllWindows()
     global frame_extraction
     frame_extraction=frameExtractionEnds-frameExtractionStarts
-    print("Done")
-
-
-    #Metrics logging function
     return
 
 def groupFrames(frames_folder, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runLogoDetection, runCloseUpDetection, close_up_threshold, logo_threshold):
