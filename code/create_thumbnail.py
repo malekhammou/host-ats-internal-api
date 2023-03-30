@@ -502,8 +502,8 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
     outputFolder=outputPath+"/"+video_filename
     if not os.path.exists(outputFolder):
         os.mkdir(outputFolder)
-
-    for item in valid_frames[:thumbnailCount]:
+    numberOfOutputThumbnails=thumbnailCount if thumbnailCount >=1 else 1
+    for item in valid_frames[:numberOfOutputThumbnails]:
                 frameNumber=int(item.split("/")[-1].split(".")[0].replace("frame",""))
                 cam.set(1, frameNumber)
                 ret, frame = cam.read()
