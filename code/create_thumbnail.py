@@ -144,7 +144,7 @@ def main():
     inputPath = os.path.join(absolute_path, inputRelativePath)
     outputPath = os.path.join(absolute_path, outputRelativePath)
 
-    close_up_threshold = finalConfig["close_up_threshold"]
+    closeUpThreshold = finalConfig["closeUpThreshold"]
     totalFramesToExtract = finalConfig["totalFramesToExtract"]
     faceDetModel = finalConfig["faceDetModel"]
     framerateExtract = finalConfig["framerateExtract"]
@@ -157,15 +157,15 @@ def main():
     beforeAnnotationSecondsCut = finalConfig["beforeAnnotationSecondsCut"]
     afterAnnotationSecondsCut = finalConfig["afterAnnotationSecondsCut"]
     staticThumbnailSec = finalConfig["staticThumbnailSec"]
-    logo_model_name = finalConfig["logo_model_name"]
-    logo_threshold = finalConfig["logo_threshold"]
-    close_up_model_name = finalConfig["close_up_model_name"]
-    iqa_model_name = finalConfig["iqa_model_name"]
-    brisque_threshold = finalConfig["brisque_threshold"]
-    blur_model_name = finalConfig["blur_model_name"]
-    svd_threshold = finalConfig["svd_threshold"]
-    laplacian_threshold = finalConfig["laplacian_threshold"]
-    filename_output = finalConfig["filename_output"]
+    logoModelName = finalConfig["logoModelName"]
+    logoThreshold = finalConfig["logoThreshold"]
+    closeupModelName = finalConfig["closeupModelName"]
+    iqaModelName = finalConfig["iqaModelName"]
+    brisqueThreshold = finalConfig["brisqueThreshold"]
+    blurModelName = finalConfig["blurModelName"]
+    svdThreshold = finalConfig["svdThreshold"]
+    laplacianThreshold = finalConfig["laplacianThreshold"]
+    filenameOutput = finalConfig["filenameOutput"]
     performanceAnalysis=finalConfig["performanceAnalysis"]
     thumbnailCount=finalConfig["thumbnailCount"]
     
@@ -182,7 +182,7 @@ def main():
     if args.staticThumbnailSec:
      staticThumbnailSec = args.staticThumbnailSec[0]
     if args.outputFilename:
-     filename_output = args.outputFilename[0]
+     filenameOutput = args.outputFilename[0]
 
     #Trimming
     if args.annotationSecond:
@@ -217,25 +217,25 @@ def main():
 
     #Logo detection
     runLogoDetection = args.xLogoDetection
-    if not runLogoDetection and not finalConfig["logo_model_name"] :
-        logo_model_name = ""
+    if not runLogoDetection and not finalConfig["logoModelName"] :
+        logoModelName = ""
         runLogoDetection=False
     if args.LEliteserien2019:
-        logo_model_name = eliteserienStr
+        logoModelName = eliteserienStr
     elif args.LSoccernet:
-        logo_model_name = soccernetStr
+        logoModelName = soccernetStr
     if args.logoThreshold:
-        logo_threshold = args.logoThreshold[0]
+        logoThreshold = args.logoThreshold[0]
 
     #Close-up detection
     runCloseUpDetection = args.xCloseupDetection
-    if not runCloseUpDetection and not finalConfig["close_up_model_name"]:
-        close_up_model_name = ""
+    if not runCloseUpDetection and not finalConfig["closeupModelName"]:
+        closeupModelName = ""
         runCloseUpDetection=False
     if args.CSurma:
-        close_up_model_name = surmaStr
+        closeupModelName = surmaStr
     if args.closeUpThreshold:
-        close_up_threshold = args.closeUpThreshold[0]
+        closeUpThreshold = args.closeUpThreshold[0]
 
     #Face detection
     runFaceDetection = args.xFaceDetection
@@ -253,34 +253,34 @@ def main():
 
     #Image Quality Assessment
     runIQA = args.xIQA
-    if not runIQA or finalConfig["iqa_model_name"]=="":
-        iqa_model_name = ""
+    if not runIQA or finalConfig["iqaModelName"]=="":
+        iqaModelName = ""
         runIQA=False
     if args.IQAOcampo:
-        iqa_model_name = ocampoStr
+        iqaModelName = ocampoStr
     if args.brisqueThreshold:
-        brisque_threshold = args.brisqueThreshold[0]
+        brisqueThreshold = args.brisqueThreshold[0]
     #Blur detection
     runBlur = args.xBlurDetection
-    if not runBlur or  finalConfig["blur_model_name"]=="":
-        blur_model_name = ""
+    if not runBlur or  finalConfig["blurModelName"]=="":
+        blurModelName = ""
         runBlur=False
     if args.BSVD:
-        blur_model_name = svdStr
+        blurModelName = svdStr
     elif args.BLaplacian:
-        blur_model_name = laplacianStr
+        blurModelName = laplacianStr
     if args.svdThreshold:
-        svd_threshold = args.svdThreshold[0]
+        svdThreshold = args.svdThreshold[0]
     if args.laplacianThreshold:
-        laplacian_threshold = args.laplacianThreshold[0]
+        laplacianThreshold = args.laplacianThreshold[0]
 
     # START SANITY CHECK -- WHICH MODULES ARE GOING TO RUN
     print("----------------------------")
-    print(f"**SC** runBlur is set to {runBlur} with {blur_model_name}")
-    print(f"**SC** runIQA is set to {runIQA} with {iqa_model_name}")
+    print(f"**SC** runBlur is set to {runBlur} with {blurModelName}")
+    print(f"**SC** runIQA is set to {runIQA} with {iqaModelName} and brisque threshold set to {brisqueThreshold}")
     print(f"**SC** runFaceDetection is set to {runFaceDetection} with {faceDetModel}")
-    print(f"**SC** runCloseUpDetection is set to {runCloseUpDetection} with {close_up_model_name}")
-    print(f"**SC** runLogoDetection is set to {runLogoDetection} with {logo_model_name}")
+    print(f"**SC** runCloseUpDetection is set to {runCloseUpDetection} with {closeupModelName}")
+    print(f"**SC** runLogoDetection is set to {runLogoDetection} with {logoModelName}")
     print("----------------------------")
 
 
@@ -314,14 +314,14 @@ def main():
         get_static(inputPath, staticThumbnailSec, downscaleOutput, thumbnail_output)
         return
     loadingModelsStarts=time.time()
-    if close_up_model_name == surmaStr:
+    if closeupModelName == surmaStr:
         print("Loading Surma Model for close up detection module...")
         close_up_model = keras.models.load_model(surma_closeup_model)
 
-    if logo_model_name == eliteserienStr:
+    if logoModelName == eliteserienStr:
         print("Loading eliteserien Model for logo detection module...")
         logo_detection_model = keras.models.load_model(eliteserien_logo_model)
-    elif logo_model_name == soccernetStr:
+    elif logoModelName == soccernetStr:
         print("Loading soccernet Model for logo detection module...")
         logo_detection_model = keras.models.load_model(soccernet_logo_model)
     loadingModelsEnds=time.time()
@@ -340,11 +340,11 @@ def main():
                 "args":"".join(sys.argv[1:]).split("-"),
                 "framesToExtract":totalFramesToExtract,
                 "downscaleOnProcessing":downscaleOnProcessing,
-                "logo_detection_model":logo_model_name,
-                "closeup_detection_model":close_up_model_name,
+                "logo_detection_model":logoModelName,
+                "closeup_detection_model":closeupModelName,
                 "face_detection_model":faceDetModel,
-                "blur_detection_model":blur_model_name,
-                "iq_prediction_model":iqa_model_name,
+                "blur_detection_model":blurModelName,
+                "iq_prediction_model":iqaModelName,
                 "frame_extraction_time":"{0:.3f}".format(frame_extraction) if frame_extraction>0 else "disabled",
                 "logo_detection_time":"{0:.3f}".format(logo_detection)if logo_detection>0 else "disabled",
                 "closeup_detection_time":"{0:.3f}".format(closeup_detection)if closeup_detection>0 else "disabled",
@@ -364,7 +364,7 @@ def main():
         performanceMetricsFile.write(json.dumps(data))
         performanceMetricsFile.close()
     if processFile:
-        create_thumbnail(name + ext, downscaleOutput, downscaleOnProcessing, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runBlur, blur_model_name, svd_threshold, laplacian_threshold, runIQA, iqa_model_name, runLogoDetection, runCloseUpDetection, close_up_threshold, brisque_threshold, logo_threshold, cutStartSeconds, cutEndSeconds, totalFramesToExtract, fpsExtract, framerateExtract, annotationSecond, beforeAnnotationSecondsCut, afterAnnotationSecondsCut, filename_output,outputPath,thumbnailCount)
+        create_thumbnail(name + ext, downscaleOutput, downscaleOnProcessing, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runBlur, blurModelName, svdThreshold, laplacianThreshold, runIQA, iqaModelName, runLogoDetection, runCloseUpDetection, closeUpThreshold, brisqueThreshold, logoThreshold, cutStartSeconds, cutEndSeconds, totalFramesToExtract, fpsExtract, framerateExtract, annotationSecond, beforeAnnotationSecondsCut, afterAnnotationSecondsCut, filenameOutput,outputPath,thumbnailCount)
         if performanceAnalysis==True:
              logMetrics()
 
@@ -373,13 +373,13 @@ def main():
         for f in os.listdir(inputPath):
             name, ext = os.path.splitext(f)
             if ext == ".ts" or ext == ".mp4" or ext == ".mkv":
-                create_thumbnail(inputPath + name + ext, downscaleOutput , downscaleOnProcessing, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runBlur, blur_model_name, svd_threshold, laplacian_threshold, runIQA, iqa_model_name, runLogoDetection, runCloseUpDetection, close_up_threshold, brisque_threshold, logo_threshold, cutStartSeconds, cutEndSeconds, totalFramesToExtract, fpsExtract, framerateExtract, annotationSecond, beforeAnnotationSecondsCut, afterAnnotationSecondsCut, filename_output,outputPath,thumbnailCount)
+                create_thumbnail(inputPath + name + ext, downscaleOutput , downscaleOnProcessing, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runBlur, blurModelName, svdThreshold, laplacianThreshold, runIQA, iqaModelName, runLogoDetection, runCloseUpDetection, closeUpThreshold, brisqueThreshold, logoThreshold, cutStartSeconds, cutEndSeconds, totalFramesToExtract, fpsExtract, framerateExtract, annotationSecond, beforeAnnotationSecondsCut, afterAnnotationSecondsCut, filenameOutput,outputPath,thumbnailCount)
                 if performanceAnalysis==True:
                     logMetrics()
 
     
 
-def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runBlur, blur_model_name, svd_threshold, laplacian_threshold, runIQA, iqa_model_name, runLogoDetection, runCloseUpDetection, close_up_threshold, brisque_threshold, logo_threshold, cutStartSeconds, cutEndSeconds, totalFramesToExtract, fpsExtract, framerateExtract, annotationSecond, beforeAnnotationSecondsCut, afterAnnotationSecondsCut, filename_output,outputPath,thumbnailCount):
+def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runBlur, blurModelName, svdThreshold, laplacianThreshold, runIQA, iqaModelName, runLogoDetection, runCloseUpDetection, closeUpThreshold, brisqueThreshold, logoThreshold, cutStartSeconds, cutEndSeconds, totalFramesToExtract, fpsExtract, framerateExtract, annotationSecond, beforeAnnotationSecondsCut, afterAnnotationSecondsCut, filenameOutput,outputPath,thumbnailCount):
     frameExtractionStarts=time.time()
     video_filename = video_path.split("/")[-1]
     frames_folder_outer=outputPath+"/temp/"+video_filename.split(".")[0]+"/"
@@ -455,7 +455,7 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
         currentframe += 1
         frameExtractionEnds=time.time()
            
-    priority_images = groupFrames(frames_folder, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runLogoDetection, runCloseUpDetection, close_up_threshold, logo_threshold)
+    priority_images = groupFrames(frames_folder, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runLogoDetection, runCloseUpDetection, closeUpThreshold, logoThreshold)
     for priority in priority_images:
         priority = dict(sorted(priority.items(), key=lambda item: item[1], reverse=True))
     #Drop 4th priority (logos)
@@ -469,21 +469,22 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
 
         if runBlur and runIQA:
             blurDetectionStarts=time.time()
-            if blur_model_name == svdStr:
+            if blurModelName == svdStr:
                     blur_score = estimate_blur_svd(frame)
-                    if blur_score > svd_threshold:
+                    if blur_score > svdThreshold:
                         break
-            if blur_model_name == laplacianStr:
+            if blurModelName == laplacianStr:
                     blur_score = estimate_blur_laplacian(frame)
-                    if blur_score < laplacian_threshold:
+                    if blur_score < laplacianThreshold:
                         continue
             blurDetectionEnds=time.time()
             global blur_detection
             blur_detection=blurDetectionEnds-blurDetectionStarts
             IQAStarts=time.time()
-            if iqa_model_name == ocampoStr:
+            if iqaModelName == ocampoStr:
                 score = predictBrisque(frame)
-                if score < brisque_threshold:
+                if score < brisqueThreshold:
+                    print("DIDN'T PASS.")
                     continue
                 
             valid_frames.append(frame)
@@ -521,7 +522,7 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
     frame_extraction=frameExtractionEnds-frameExtractionStarts
     return
 
-def groupFrames(frames_folder, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runLogoDetection, runCloseUpDetection, close_up_threshold, logo_threshold):
+def groupFrames(frames_folder, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runLogoDetection, runCloseUpDetection, closeUpThreshold, logoThreshold):
     test_generator = None
     TEST_SIZE = 0
     faceDetectionStarts=0
@@ -546,7 +547,7 @@ def groupFrames(frames_folder, close_up_model, logo_detection_model, faceDetMode
 
         for index, probability in enumerate(logo_probabilities):
             image_path = frames_folder + test_generator.filenames[index].split("/")[-1]
-            if probability > logo_threshold:
+            if probability > logoThreshold:
                 logos.append(image_path)
         logoDetectionEnds=time.time()
         if runLogoDetection:
@@ -567,7 +568,7 @@ def groupFrames(frames_folder, close_up_model, logo_detection_model, faceDetMode
             if image_path in logos:
                 priority_images[3][image_path] = probability
 
-            elif probability > close_up_threshold:
+            elif probability > closeUpThreshold:
                 if runFaceDetection:
                     faceDetectionStarts=time.time()
                     face_size = detect_faces(image_path, faceDetModel)
@@ -644,9 +645,9 @@ def get_static(video_path, secondExtract, downscaleOutput, outputFolder):
 
 
 def predictBrisque(image_path):
-    img = cv2.imread(image_path)
-    brisquePredictor = BRISQUE()
-    brisqueScore = brisquePredictor.get_score(np.asarray(img))
+    #img = cv2.imread(image_path)
+    brisquePredictor = BRISQUE(image_path)
+    brisqueScore = brisquePredictor.score()
     return brisqueScore
 
 def estimate_blur_svd(image_file, sv_num=10):
