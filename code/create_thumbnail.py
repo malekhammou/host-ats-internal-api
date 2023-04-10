@@ -8,7 +8,6 @@ from keras.preprocessing.image import ImageDataGenerator
 import argparse
 from os.path import isfile, isdir
 import shutil
-import imquality.brisque as brisque
 import dlib
 from mtcnn.mtcnn import MTCNN
 import time
@@ -18,7 +17,9 @@ from datetime import datetime
 import psutil
 import tensorflow as tf
 import sys
-from brisque import BRISQUE
+from utils.IQA import brisqueScoreTest
+from utils.BLUR import estimate_blur_laplacian,estimate_blur_svd
+from utils.NUMERICAL import above_zero_float,positive_int,above_zero_int,restricted_float
 import json
 from collections import ChainMap
 #Paths
@@ -482,9 +483,8 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
             blur_detection=blurDetectionEnds-blurDetectionStarts
             IQAStarts=time.time()
             if iqaModelName == ocampoStr:
-                score = predictBrisque(frame)
-                if score < brisqueThreshold:
-                    print("DIDN'T PASS.")
+                if brisqueScoreTest(frame,brisqueThreshold)==False:
+                    print(f"{frame} did not pass brisque test.")
                     continue
                 
             valid_frames.append(frame)
@@ -643,28 +643,6 @@ def get_static(video_path, secondExtract, downscaleOutput, outputFolder):
         cv2.imwrite(outputFolder + newName, img)
         break
 
-
-def predictBrisque(image_path):
-    #img = cv2.imread(image_path)
-    brisquePredictor = BRISQUE(image_path)
-    brisqueScore = brisquePredictor.score()
-    return brisqueScore
-
-def estimate_blur_svd(image_file, sv_num=10):
-    img = cv2.imread(image_file,cv2.IMREAD_GRAYSCALE)
-    u, s, v = np.linalg.svd(img)
-    top_sv = np.sum(s[0:sv_num])
-    total_sv = np.sum(s)
-    return top_sv/total_sv
-
-
-def estimate_blur_laplacian(image_file):
-    #img = cv2.imread(
-    img = cv2.imread(image_file,cv2.COLOR_BGR2GRAY)
-    blur_map = cv2.Laplacian(img, cv2.CV_64F)
-    score = np.var(blur_map)
-    return score
-
 def detect_faces(image, faceDetModel):
     biggestFace = 0
     if faceDetModel == dlibStr:
@@ -720,43 +698,6 @@ def detect_faces(image, faceDetModel):
     else:
         print("No face detection model in use")
     return biggestFace
-
-def restricted_float(x):
-    try:
-        x = float(x)
-    except ValueError:
-        raise argparse.ArgumentTypeError("%r not a floating-point literal" % (x,))
-
-    if x < 0.0 or x > 1.0:
-        raise argparse.ArgumentTypeError("%r not in range [0.0, 1.0]"%(x,))
-    return x
-
-def above_zero_float(x):
-    try:
-        x = float(x)
-    except ValueError:
-        raise argparse.ArgumentTypeError("%r not a floating-point literal" % (x,))
-    if x <=0:
-        raise argparse.ArgumentTypeError("%r not above zero"%(x,))
-    return x
-
-def positive_int(x):
-    try:
-        x = int(x)
-    except ValueError:
-        raise argparse.ArgumentTypeError("%r not an int literal" % (x,))
-    if x < 0:
-        raise argparse.ArgumentTypeError("%r not a positive int"%(x,))
-    return x
-
-def above_zero_int(x):
-    try:
-        x = int(x)
-    except ValueError:
-        raise argparse.ArgumentTypeError("%r not an int literal" % (x,))
-    if x <= 0:
-        raise argparse.ArgumentTypeError("%r not above zero"%(x,))
-    return x
 
 
 if __name__ == "__main__":
