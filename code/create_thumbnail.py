@@ -17,9 +17,9 @@ from datetime import datetime
 import psutil
 import tensorflow as tf
 import sys
-from utils.IQA import brisqueScoreTest
-from utils.BLUR import estimate_blur_laplacian,estimate_blur_svd
-from utils.NUMERICAL import above_zero_float,positive_int,above_zero_int,restricted_float
+from utils.iqa import brisqueScoreTest
+from utils.blur import estimate_blur_laplacian,estimate_blur_svd
+from utils.num import above_zero_float,positive_int,above_zero_int,restricted_float
 import json
 from collections import ChainMap
 #Paths
