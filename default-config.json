@@ -18,11 +18,11 @@
     "logoThreshold" : 0.1,
     "closeupModelName" : "surma",
     "iqaModelName" :"ocampo",
-    "brisqueThreshold" : 35,
+    "brisqueThreshold" : 25,
     "blurModelName" : "laplacian",
     "svdThreshold" : 0.60,
     "laplacianThreshold" : 1000,
     "filenameOutput" : "",
     "performanceAnalysis":false,
-    "thumbnailCount":4
+    "thumbnailCount":6
     }
