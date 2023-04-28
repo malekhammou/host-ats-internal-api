@@ -644,5 +644,3 @@ def detect_faces(image, faceDetModel):
     return biggestFace
 
 
-if __name__ == "__main__":
-    main()
