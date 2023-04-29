@@ -5,10 +5,8 @@ import math
 import numpy as np
 from tensorflow import keras
 from keras.preprocessing.image import ImageDataGenerator
-import argparse
 from os.path import isfile, isdir
 import shutil
-import imquality.brisque as brisque
 import dlib
 from mtcnn.mtcnn import MTCNN
 import time
@@ -18,8 +16,11 @@ from datetime import datetime
 import psutil
 import tensorflow as tf
 import sys
-from brisque import BRISQUE
+from utils.iqa import brisqueScoreTest
+from utils.args import parseArguments
+from utils.blur import estimate_blur_laplacian,estimate_blur_svd
 import json
+from collections import ChainMap
 #Paths
 model_folder = "../models/"
 frames_folder_outer = "../results/temp"
@@ -59,65 +60,10 @@ total=0
 #frames extracted
 numFramesExtracted=0
 def main():
-    parser = argparse.ArgumentParser(description="Thumbnail generator")
-    parser.add_argument('-conf','--configuration', type=str,default="../config.json", required=False ,help="Full path to a configuration file formatted as JSON.")
-    parser.add_argument('-iter','--iteration', type=int, required=False,help='Number of executions per configuration')
-    parser.add_argument('-pa','--performanceAnalysis', type=bool,default=False,  required=False ,help="run performance analyis.")
-    parser.add_argument("-tc", "--thumbnailCount", type=above_zero_int,  nargs=1, help="Number of desired output thumbnails " )
-    #Logo detection models
-    logoGroup = parser.add_mutually_exclusive_group(required=False)
-    logoGroup.add_argument("-LEliteserien2019", action='store_true', help="Surma model used for logo detection, trained on Eliteserien 2019.")
-    logoGroup.add_argument("-LSoccernet", action='store_true', help="Surma model used for logo detection, trained on Soccernet.")
-    logoGroup.add_argument("-xl", "--xLogoDetection", default=True, action="store_false", help="Don't run logo detection.")
-
-    #Close-up detection models
-    closeupGroup = parser.add_mutually_exclusive_group(required=False)
-    closeupGroup.add_argument("-CSurma", action='store_true', help="Surma model used for close-up detection.")
-    closeupGroup.add_argument("-xc", "--xCloseupDetection", default=True, action="store_false", help="Don't run close-up detection.")
-
-    #IQA models
-    iqaGroup = parser.add_mutually_exclusive_group(required=False)
-    iqaGroup.add_argument("-IQAOcampo", action='store_true', help="Ocampo model used for image quality assessment.")
-    iqaGroup.add_argument("-xi", "--xIQA", default=True, action="store_false", help="Don't run image quality prediction.")
-
-    #Blur detection models
-    blurGroup = parser.add_mutually_exclusive_group(required=False)
-    blurGroup.add_argument("-BSVD", action='store_true', help="SVD method used for blur detection.")
-    blurGroup.add_argument("-BLaplacian", action='store_true', help="Laplacian method used for blur detection.")
-    blurGroup.add_argument("-xb", "--xBlurDetection", default=True, action="store_false", help="Don't run blur detection.")
-
-
-    #Face models
-    faceGroup = parser.add_mutually_exclusive_group(required = False)
-    faceGroup.add_argument("-dlib", action='store_true', help="Dlib detection model is slow, but presice.")
-    faceGroup.add_argument("-haar", action='store_true', help="Haar detection model is fast, but unprecise.")
-    faceGroup.add_argument("-mtcnn", action='store_true', help="MTCNN detection model is slow, but precise.")
-    faceGroup.add_argument("-dnn", action='store_true', help="DNN detection model is fast and precise.")
-    faceGroup.add_argument("-xf", "--xFaceDetection", default=True, action="store_false", help="Don't run the face detection.")
-
-    #Flags fixing default values
-    parser.add_argument("-cuthr", "--closeUpThreshold", type=restricted_float, nargs=1, help="The threshold value for the close-up detection model. The value must be between 0 and 1. The default is: " )
-    parser.add_argument("-brthr", "--brisqueThreshold", type=float, nargs=1, help="The threshold value for the image quality predictor model. The default is: " )
-    parser.add_argument("-logothr", "--logoThreshold", type=restricted_float,  nargs=1, help="The threshold value for the logo detection model. The value must be between 0 and 1. The default value is: ")
-    parser.add_argument("-svdthr", "--svdThreshold", type=restricted_float,  nargs=1, help="The threshold value for the SVD blur detection. The default value is: " )
-    parser.add_argument("-lapthr", "--laplacianThreshold", type=float,  nargs=1, help="The threshold value for the Laplacian blur detection. The default value is: " )
-    parser.add_argument("-css", "--cutStartSeconds", type=positive_int,  nargs=1, help="The number of seconds to cut from start of the video. These seconds of video will not be processed in the thumbnail selection. The default value is: " )
-    parser.add_argument("-ces", "--cutEndSeconds", type=positive_int,  nargs=1, help="The number of seconds to cut from the end of the video. These seconds of video will not be processed in the thumbnail selection. The default value is: " )
-    numFrameExtractGroup = parser.add_mutually_exclusive_group(required = False)
-    numFrameExtractGroup.add_argument("-nfe", "--numberOfFramesToExtract", type=above_zero_int,  nargs=1, help="Number of frames to be extracted from the video for the thumbnail selection process. The default is: " )
-    numFrameExtractGroup.add_argument("-fre", "--framerateToExtract", type=restricted_float,  nargs=1, help="The framerate wanted to be extracted from the video for the thumbnail selection process.")
-    numFrameExtractGroup.add_argument("-fpse", "--fpsExtract", type=above_zero_float,  nargs=1, help="Number of frames per second to extract from the video for the thumbnail selection process.")
-    parser.add_argument("-ds", "--downscaleProcessingImages", type=restricted_float,  nargs=1, help="The value deciding how much the images to be processed should be downscaled. The default value is: " )
-    parser.add_argument("-dso", "--downscaleOutputImage", type=restricted_float,  nargs=1, help="The value deciding how much the output thumbnail image should be downscaled. The default value is: " )
-    parser.add_argument("-as", "--annotationSecond", type=positive_int,  nargs=1, help="The second the event is annotated to in the video.")
-    parser.add_argument("-bac", "--beforeAnnotationSecondsCut", type=positive_int,  nargs=1, help="Seconds before the annotation to cut the frame extraction.")
-    parser.add_argument("-aac", "--afterAnnotationSecondsCut", type=positive_int,  nargs=1, help="Seconds after the annotation to cut the frame extraction.")
-    parser.add_argument("-st", "--staticThumbnailSec", type=positive_int,  nargs=1, help="To generate a static thumbnail from the video, this flag is used. The second the frame should be clipped from should follow as an argument. Running this flag ignores all the other flags.")
-    parser.add_argument("-fn", "--outputFilename", type=str,  nargs=1, help="Filename for the output thumbnail instead of default.")
-    args = parser.parse_args()
+    args=parseArguments()
     configuration = args.configuration
     defaultConfigFilePath="../default-config.json" 
-    localConfigFilePath="../config.json"
+    localConfigFilePath="../input/config.json"
     configFilePath=configuration if os.path.exists(configuration) else localConfigFilePath if os.path.exists(localConfigFilePath) else defaultConfigFilePath 
     configFile = open(configFilePath)
     config = json.load(configFile)
@@ -143,7 +89,7 @@ def main():
     inputPath = os.path.join(absolute_path, inputRelativePath)
     outputPath = os.path.join(absolute_path, outputRelativePath)
 
-    close_up_threshold = finalConfig["close_up_threshold"]
+    closeUpThreshold = finalConfig["closeUpThreshold"]
     totalFramesToExtract = finalConfig["totalFramesToExtract"]
     faceDetModel = finalConfig["faceDetModel"]
     framerateExtract = finalConfig["framerateExtract"]
@@ -156,15 +102,15 @@ def main():
     beforeAnnotationSecondsCut = finalConfig["beforeAnnotationSecondsCut"]
     afterAnnotationSecondsCut = finalConfig["afterAnnotationSecondsCut"]
     staticThumbnailSec = finalConfig["staticThumbnailSec"]
-    logo_model_name = finalConfig["logo_model_name"]
-    logo_threshold = finalConfig["logo_threshold"]
-    close_up_model_name = finalConfig["close_up_model_name"]
-    iqa_model_name = finalConfig["iqa_model_name"]
-    brisque_threshold = finalConfig["brisque_threshold"]
-    blur_model_name = finalConfig["blur_model_name"]
-    svd_threshold = finalConfig["svd_threshold"]
-    laplacian_threshold = finalConfig["laplacian_threshold"]
-    filename_output = finalConfig["filename_output"]
+    logoModelName = finalConfig["logoModelName"]
+    logoThreshold = finalConfig["logoThreshold"]
+    closeupModelName = finalConfig["closeupModelName"]
+    iqaModelName = finalConfig["iqaModelName"]
+    brisqueThreshold = finalConfig["brisqueThreshold"]
+    blurModelName = finalConfig["blurModelName"]
+    svdThreshold = finalConfig["svdThreshold"]
+    laplacianThreshold = finalConfig["laplacianThreshold"]
+    filenameOutput = finalConfig["filenameOutput"]
     performanceAnalysis=finalConfig["performanceAnalysis"]
     thumbnailCount=finalConfig["thumbnailCount"]
     
@@ -181,7 +127,7 @@ def main():
     if args.staticThumbnailSec:
      staticThumbnailSec = args.staticThumbnailSec[0]
     if args.outputFilename:
-     filename_output = args.outputFilename[0]
+     filenameOutput = args.outputFilename[0]
 
     #Trimming
     if args.annotationSecond:
@@ -216,25 +162,25 @@ def main():
 
     #Logo detection
     runLogoDetection = args.xLogoDetection
-    if not runLogoDetection and not finalConfig["logo_model_name"] :
-        logo_model_name = ""
+    if not runLogoDetection and not finalConfig["logoModelName"] :
+        logoModelName = ""
         runLogoDetection=False
     if args.LEliteserien2019:
-        logo_model_name = eliteserienStr
+        logoModelName = eliteserienStr
     elif args.LSoccernet:
-        logo_model_name = soccernetStr
+        logoModelName = soccernetStr
     if args.logoThreshold:
-        logo_threshold = args.logoThreshold[0]
+        logoThreshold = args.logoThreshold[0]
 
     #Close-up detection
     runCloseUpDetection = args.xCloseupDetection
-    if not runCloseUpDetection and not finalConfig["close_up_model_name"]:
-        close_up_model_name = ""
+    if not runCloseUpDetection and not finalConfig["closeupModelName"]:
+        closeupModelName = ""
         runCloseUpDetection=False
     if args.CSurma:
-        close_up_model_name = surmaStr
+        closeupModelName = surmaStr
     if args.closeUpThreshold:
-        close_up_threshold = args.closeUpThreshold[0]
+        closeUpThreshold = args.closeUpThreshold[0]
 
     #Face detection
     runFaceDetection = args.xFaceDetection
@@ -252,34 +198,34 @@ def main():
 
     #Image Quality Assessment
     runIQA = args.xIQA
-    if not runIQA or finalConfig["iqa_model_name"]=="":
-        iqa_model_name = ""
+    if not runIQA or finalConfig["iqaModelName"]=="":
+        iqaModelName = ""
         runIQA=False
     if args.IQAOcampo:
-        iqa_model_name = ocampoStr
+        iqaModelName = ocampoStr
     if args.brisqueThreshold:
-        brisque_threshold = args.brisqueThreshold[0]
+        brisqueThreshold = args.brisqueThreshold[0]
     #Blur detection
     runBlur = args.xBlurDetection
-    if not runBlur or  finalConfig["blur_model_name"]=="":
-        blur_model_name = ""
+    if not runBlur or  finalConfig["blurModelName"]=="":
+        blurModelName = ""
         runBlur=False
     if args.BSVD:
-        blur_model_name = svdStr
+        blurModelName = svdStr
     elif args.BLaplacian:
-        blur_model_name = laplacianStr
+        blurModelName = laplacianStr
     if args.svdThreshold:
-        svd_threshold = args.svdThreshold[0]
+        svdThreshold = args.svdThreshold[0]
     if args.laplacianThreshold:
-        laplacian_threshold = args.laplacianThreshold[0]
+        laplacianThreshold = args.laplacianThreshold[0]
 
     # START SANITY CHECK -- WHICH MODULES ARE GOING TO RUN
     print("----------------------------")
-    print(f"**SC** runBlur is set to {runBlur} with {blur_model_name}")
-    print(f"**SC** runIQA is set to {runIQA} with {iqa_model_name}")
+    print(f"**SC** runBlur is set to {runBlur} with {blurModelName}")
+    print(f"**SC** runIQA is set to {runIQA} with {iqaModelName} and brisque threshold set to {brisqueThreshold}")
     print(f"**SC** runFaceDetection is set to {runFaceDetection} with {faceDetModel}")
-    print(f"**SC** runCloseUpDetection is set to {runCloseUpDetection} with {close_up_model_name}")
-    print(f"**SC** runLogoDetection is set to {runLogoDetection} with {logo_model_name}")
+    print(f"**SC** runCloseUpDetection is set to {runCloseUpDetection} with {closeupModelName}")
+    print(f"**SC** runLogoDetection is set to {runLogoDetection} with {logoModelName}")
     print("----------------------------")
 
 
@@ -313,14 +259,14 @@ def main():
         get_static(inputPath, staticThumbnailSec, downscaleOutput, thumbnail_output)
         return
     loadingModelsStarts=time.time()
-    if close_up_model_name == surmaStr:
+    if closeupModelName == surmaStr:
         print("Loading Surma Model for close up detection module...")
         close_up_model = keras.models.load_model(surma_closeup_model)
 
-    if logo_model_name == eliteserienStr:
+    if logoModelName == eliteserienStr:
         print("Loading eliteserien Model for logo detection module...")
         logo_detection_model = keras.models.load_model(eliteserien_logo_model)
-    elif logo_model_name == soccernetStr:
+    elif logoModelName == soccernetStr:
         print("Loading soccernet Model for logo detection module...")
         logo_detection_model = keras.models.load_model(soccernet_logo_model)
     loadingModelsEnds=time.time()
@@ -339,11 +285,11 @@ def main():
                 "args":"".join(sys.argv[1:]).split("-"),
                 "framesToExtract":totalFramesToExtract,
                 "downscaleOnProcessing":downscaleOnProcessing,
-                "logo_detection_model":logo_model_name,
-                "closeup_detection_model":close_up_model_name,
+                "logo_detection_model":logoModelName,
+                "closeup_detection_model":closeupModelName,
                 "face_detection_model":faceDetModel,
-                "blur_detection_model":blur_model_name,
-                "iq_prediction_model":iqa_model_name,
+                "blur_detection_model":blurModelName,
+                "iq_prediction_model":iqaModelName,
                 "frame_extraction_time":"{0:.3f}".format(frame_extraction) if frame_extraction>0 else "disabled",
                 "logo_detection_time":"{0:.3f}".format(logo_detection)if logo_detection>0 else "disabled",
                 "closeup_detection_time":"{0:.3f}".format(closeup_detection)if closeup_detection>0 else "disabled",
@@ -363,7 +309,7 @@ def main():
         performanceMetricsFile.write(json.dumps(data))
         performanceMetricsFile.close()
     if processFile:
-        create_thumbnail(name + ext, downscaleOutput, downscaleOnProcessing, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runBlur, blur_model_name, svd_threshold, laplacian_threshold, runIQA, iqa_model_name, runLogoDetection, runCloseUpDetection, close_up_threshold, brisque_threshold, logo_threshold, cutStartSeconds, cutEndSeconds, totalFramesToExtract, fpsExtract, framerateExtract, annotationSecond, beforeAnnotationSecondsCut, afterAnnotationSecondsCut, filename_output,outputPath,thumbnailCount)
+        create_thumbnail(name + ext, downscaleOutput, downscaleOnProcessing, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runBlur, blurModelName, svdThreshold, laplacianThreshold, runIQA, iqaModelName, runLogoDetection, runCloseUpDetection, closeUpThreshold, brisqueThreshold, logoThreshold, cutStartSeconds, cutEndSeconds, totalFramesToExtract, fpsExtract, framerateExtract, annotationSecond, beforeAnnotationSecondsCut, afterAnnotationSecondsCut, filenameOutput,outputPath,thumbnailCount)
         if performanceAnalysis==True:
              logMetrics()
 
@@ -372,13 +318,13 @@ def main():
         for f in os.listdir(inputPath):
             name, ext = os.path.splitext(f)
             if ext == ".ts" or ext == ".mp4" or ext == ".mkv":
-                create_thumbnail(inputPath + name + ext, downscaleOutput , downscaleOnProcessing, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runBlur, blur_model_name, svd_threshold, laplacian_threshold, runIQA, iqa_model_name, runLogoDetection, runCloseUpDetection, close_up_threshold, brisque_threshold, logo_threshold, cutStartSeconds, cutEndSeconds, totalFramesToExtract, fpsExtract, framerateExtract, annotationSecond, beforeAnnotationSecondsCut, afterAnnotationSecondsCut, filename_output,outputPath,thumbnailCount)
+                create_thumbnail(inputPath + name + ext, downscaleOutput , downscaleOnProcessing, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runBlur, blurModelName, svdThreshold, laplacianThreshold, runIQA, iqaModelName, runLogoDetection, runCloseUpDetection, closeUpThreshold, brisqueThreshold, logoThreshold, cutStartSeconds, cutEndSeconds, totalFramesToExtract, fpsExtract, framerateExtract, annotationSecond, beforeAnnotationSecondsCut, afterAnnotationSecondsCut, filenameOutput,outputPath,thumbnailCount)
                 if performanceAnalysis==True:
                     logMetrics()
 
     
 
-def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runBlur, blur_model_name, svd_threshold, laplacian_threshold, runIQA, iqa_model_name, runLogoDetection, runCloseUpDetection, close_up_threshold, brisque_threshold, logo_threshold, cutStartSeconds, cutEndSeconds, totalFramesToExtract, fpsExtract, framerateExtract, annotationSecond, beforeAnnotationSecondsCut, afterAnnotationSecondsCut, filename_output,outputPath,thumbnailCount):
+def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runBlur, blurModelName, svdThreshold, laplacianThreshold, runIQA, iqaModelName, runLogoDetection, runCloseUpDetection, closeUpThreshold, brisqueThreshold, logoThreshold, cutStartSeconds, cutEndSeconds, totalFramesToExtract, fpsExtract, framerateExtract, annotationSecond, beforeAnnotationSecondsCut, afterAnnotationSecondsCut, filenameOutput,outputPath,thumbnailCount):
     frameExtractionStarts=time.time()
     video_filename = video_path.split("/")[-1]
     frames_folder_outer=outputPath+"/temp/"+video_filename.split(".")[0]+"/"
@@ -453,135 +399,56 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
             numFramesExtracted += 1
         currentframe += 1
         frameExtractionEnds=time.time()
-        
-
-        
-    priority_images = groupFrames(frames_folder, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runLogoDetection, runCloseUpDetection, close_up_threshold, logo_threshold)
-
-    finalThumbnail = ""
-    print(f"**DBG** PRIORITY IMAGES ARRAY ==> {priority_images}")
+           
+    priority_images = groupFrames(frames_folder, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runLogoDetection, runCloseUpDetection, closeUpThreshold, logoThreshold)
     for priority in priority_images:
-        print(f"**DBG** PRIORITY  ==> {priority}")
-        if finalThumbnail != "":
-            break
         priority = dict(sorted(priority.items(), key=lambda item: item[1], reverse=True))
-        print(f"**DBG** SORTED PRIORITY ==> {priority}")
+    #Drop 4th priority (logos)
+    priority_images_no_logos=priority_images[:3]
+    #Flatten all frames from different priorities
+    merged_priorities=dict(ChainMap(*priority_images_no_logos)).keys()
+    # 1-Frames that will be kept after running IQA AND blur detection.
+    # 2-A frame is kept only if it passes the tests of the two modules.
+    valid_frames = []
+    for frame in merged_priorities:
 
-
-        blur_filtered = []
-        print(f"**DBG** blur filtered array has been initialized")
-        if runBlur:
+        if runBlur and runIQA:
             blurDetectionStarts=time.time()
-            if blur_model_name == svdStr:
-                for image in priority:
-                    blur_score = estimate_blur_svd(image)
-                    if blur_score < svd_threshold:
-                        blur_filtered.append(image)
-            if blur_model_name == laplacianStr:
-                for image in priority:
-                    blur_score = estimate_blur_laplacian(image)
-                    if blur_score > laplacian_threshold:
-                        blur_filtered.append(image)
-            blurDetectionEnds=time.time()
-            if runBlur:
-                global blur_detection
-                blur_detection=blurDetectionEnds-blurDetectionStarts
-
-
-        else:
-            print(f"**DBG** NO BLUR DETECTION BLOC!!")
-            for image in priority:
-                blur_filtered.append(image)
-
-
-        if runIQA:
-            IQAStarts=time.time()
-            if iqa_model_name == ocampoStr:
-                bestScore = 0
-                for image in blur_filtered:
-                    score = predictBrisque(image)
-                    if finalThumbnail == "":
-                        bestScore = score
-                        finalThumbnail = image
-                    if score < brisque_threshold:
-                        finalThumbnail = image
+            if blurModelName == svdStr:
+                    blur_score = estimate_blur_svd(frame)
+                    if blur_score > svdThreshold:
                         break
-                    if score < bestScore:
-                        bestScore = score
-                        finalThumbnail = image
+            if blurModelName == laplacianStr:
+                    blur_score = estimate_blur_laplacian(frame)
+                    if blur_score < laplacianThreshold:
+                        continue
+            blurDetectionEnds=time.time()
+            global blur_detection
+            blur_detection=blurDetectionEnds-blurDetectionStarts
+            IQAStarts=time.time()
+            if iqaModelName == ocampoStr:
+                if brisqueScoreTest(frame,brisqueThreshold)==False:
+                    print(f"{frame} did not pass brisque test.")
+                    continue
+                
+            valid_frames.append(frame)
+
             IQAEnds=time.time()
             if runIQA:
                 global iq_predicition
                 iq_predicition=IQAEnds-IQAStarts
-
+            
         else:
-            print(f"**DBG** DO NOT RUN IQA BLOC")
-            for image in blur_filtered:
-                finalThumbnail = image
-                break
-    if finalThumbnail == "":
-        for priority in priority_images:
-            if finalThumbnail != "":
-                break
-            for image in priority:
-                finalThumbnail = image
-                break
-
-    if finalThumbnail != "":
-        outputFolder=outputPath+"/"+video_filename
-        if not os.path.exists(outputFolder):
-             os.mkdir(outputFolder)
-
-        newName = ""
-        if filename_output == "":
-            newName = video_filename.split(".")[0] + "_" + filename_additional +  ".jpg"
-        else:
-            newName = filename_output
-            extension_added = len(newName.split(".")) == 2
-            if not extension_added:
-                newName = newName + ".jpg"
-        topThumbnailCandidates= [{"frameNumber":int(item.split("/")[-1].split(".")[0].replace("frame","")),
-        "frameOffset":(duration*int(item.split("/")[-1].split(".")[0].replace("frame","")))/totalFrames} for item in blur_filtered[:thumbnailCount+1]]
-        imageName = finalThumbnail.split("/")[-1].split(".")[0]
-        frameNum = int(imageName.replace("frame", ""))
-        newName=newName.split(".")[0]+f'_{len(os.listdir(outputFolder))}'+'.'+newName.split(".")[-1] if len(os.listdir(outputFolder))>=1  else newName.split(".")[0]+f'_1'+'.'+newName.split(".")[-1]
-        metadata = {
-            "filename":video_filename,
-            "duration":duration, "fps":fps,"frameSkip":frame_skip,
-                 "totalFrames":totalFrames,
-                 "selectedThumbnailOffset":(duration*frameNum)/totalFrames,
-                 "selectedThumbnailFrame":frameNum,
-                 "topThumbnailCandidates":topThumbnailCandidates}
-        jsonString = json.dumps(metadata)
-        jsonOutputFile=video_filename.split(".")[0]
-        jsonFile = open(f"{outputFolder}/{jsonOutputFile}.json", "w")
-        jsonFile.write(jsonString)
-        jsonFile.close()
-        hostAtsSummary = open(f"../host-ats-output.json","r")
-        data = json.load(hostAtsSummary)
-        hostAtsSummary.close()
-        hostAtsSummary = open(f"../host-ats-output.json","w")
-        data["output"].append(metadata)
-        hostAtsSummary.write(json.dumps(data))
-        hostAtsSummary.close()
+            # if blur and IQA modules are disabled, we keep the frame.
+            for frame in merged_priorities:
+                valid_frames.append(frame)
 
 
-
-        cam.set(1, frameNum)
-        ret, frame = cam.read()
-        if downscaleOutput != 1.0:
-            width = int(frame.shape[1] * downscaleOutput)
-            height = int(frame.shape[0] * downscaleOutput)
-            dsize = (width, height)
-            frame = cv2.resize(frame, dsize)
-        cv2.imwrite(os.path.join(outputFolder , newName), frame)
-        print("Thumbnail created. Filename: " + newName)
-        print("***The thumbnail count is set to ",thumbnailCount)
-        if thumbnailCount>1:
-            print( "***The length of blur filtered array is",len(blur_filtered))
-            print("***Blur filtered array***",blur_filtered)
-            print(f'the {thumbnailCount} obtained frames are {blur_filtered[:thumbnailCount]}')
-            for item in blur_filtered[:thumbnailCount-1]:
+    outputFolder=outputPath+"/"+video_filename
+    if not os.path.exists(outputFolder):
+        os.mkdir(outputFolder)
+    numberOfOutputThumbnails=thumbnailCount if thumbnailCount >=1 else 1
+    for item in valid_frames[:numberOfOutputThumbnails]:
                 frameNumber=int(item.split("/")[-1].split(".")[0].replace("frame",""))
                 cam.set(1, frameNumber)
                 ret, frame = cam.read()
@@ -592,32 +459,14 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
                     frame = cv2.resize(frame, dsize)
                 newName = video_filename.split(".")[0] + "_" + filename_additional +"_"+ str(len(os.listdir(outputFolder)) )+ ".jpg"
                 cv2.imwrite(os.path.join(outputFolder ,newName), frame)
-                print("Thumbnail created. Filename: " + newName)
-
-
-
-
-
-
-
-
-
-
-
-
-        # Release all space and windows once done
-        cam.release()
-        cv2.destroyAllWindows()
-        
+                print("Thumbnails have been created." + newName)
+    cam.release()
+    cv2.destroyAllWindows()
     global frame_extraction
     frame_extraction=frameExtractionEnds-frameExtractionStarts
-    print("Done")
-
-
-    #Metrics logging function
     return
 
-def groupFrames(frames_folder, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runLogoDetection, runCloseUpDetection, close_up_threshold, logo_threshold):
+def groupFrames(frames_folder, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runLogoDetection, runCloseUpDetection, closeUpThreshold, logoThreshold):
     test_generator = None
     TEST_SIZE = 0
     faceDetectionStarts=0
@@ -642,7 +491,7 @@ def groupFrames(frames_folder, close_up_model, logo_detection_model, faceDetMode
 
         for index, probability in enumerate(logo_probabilities):
             image_path = frames_folder + test_generator.filenames[index].split("/")[-1]
-            if probability > logo_threshold:
+            if probability > logoThreshold:
                 logos.append(image_path)
         logoDetectionEnds=time.time()
         if runLogoDetection:
@@ -663,7 +512,7 @@ def groupFrames(frames_folder, close_up_model, logo_detection_model, faceDetMode
             if image_path in logos:
                 priority_images[3][image_path] = probability
 
-            elif probability > close_up_threshold:
+            elif probability > closeUpThreshold:
                 if runFaceDetection:
                     faceDetectionStarts=time.time()
                     face_size = detect_faces(image_path, faceDetModel)
@@ -738,28 +587,6 @@ def get_static(video_path, secondExtract, downscaleOutput, outputFolder):
         cv2.imwrite(outputFolder + newName, img)
         break
 
-
-def predictBrisque(image_path):
-    img = cv2.imread(image_path)
-    brisquePredictor = BRISQUE()
-    brisqueScore = brisquePredictor.get_score(np.asarray(img))
-    return brisqueScore
-
-def estimate_blur_svd(image_file, sv_num=10):
-    img = cv2.imread(image_file,cv2.IMREAD_GRAYSCALE)
-    u, s, v = np.linalg.svd(img)
-    top_sv = np.sum(s[0:sv_num])
-    total_sv = np.sum(s)
-    return top_sv/total_sv
-
-
-def estimate_blur_laplacian(image_file):
-    #img = cv2.imread(
-    img = cv2.imread(image_file,cv2.COLOR_BGR2GRAY)
-    blur_map = cv2.Laplacian(img, cv2.CV_64F)
-    score = np.var(blur_map)
-    return score
-
 def detect_faces(image, faceDetModel):
     biggestFace = 0
     if faceDetModel == dlibStr:
@@ -816,43 +643,4 @@ def detect_faces(image, faceDetModel):
         print("No face detection model in use")
     return biggestFace
 
-def restricted_float(x):
-    try:
-        x = float(x)
-    except ValueError:
-        raise argparse.ArgumentTypeError("%r not a floating-point literal" % (x,))
 
-    if x < 0.0 or x > 1.0:
-        raise argparse.ArgumentTypeError("%r not in range [0.0, 1.0]"%(x,))
-    return x
-
-def above_zero_float(x):
-    try:
-        x = float(x)
-    except ValueError:
-        raise argparse.ArgumentTypeError("%r not a floating-point literal" % (x,))
-    if x <=0:
-        raise argparse.ArgumentTypeError("%r not above zero"%(x,))
-    return x
-
-def positive_int(x):
-    try:
-        x = int(x)
-    except ValueError:
-        raise argparse.ArgumentTypeError("%r not an int literal" % (x,))
-    if x < 0:
-        raise argparse.ArgumentTypeError("%r not a positive int"%(x,))
-    return x
-
-def above_zero_int(x):
-    try:
-        x = int(x)
-    except ValueError:
-        raise argparse.ArgumentTypeError("%r not an int literal" % (x,))
-    if x <= 0:
-        raise argparse.ArgumentTypeError("%r not above zero"%(x,))
-    return x
-
-
-if __name__ == "__main__":
-    main()
