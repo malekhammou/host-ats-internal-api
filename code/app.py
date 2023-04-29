@@ -8,6 +8,10 @@ import base64
 
 app = Flask(__name__)
 
+@app.route('/', methods=['GET'])
+def hello():
+    return "Welcome to HOST-ATS api."
+
 @app.route('/create_thumbnail', methods=['POST'])
 def download_video():
     data = request.get_json()
