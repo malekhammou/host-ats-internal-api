@@ -1,5 +1,5 @@
 brisque==0.0.14
-cmake==3.21.1
+cmake==3.24.1.1
 dlib==19.24.0
 image-quality==1.2.7
 mtcnn==0.1.1
