@@ -60,4 +60,4 @@ jobs:
         with:
           app-name: 'host-ats-api'
           slot-name: 'Production'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_7FE980AC8ABE4CDAABF142FAB7D2BDD2 }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_3AD8EE4A8F634F38BFA29E20C7D42FEE }}
