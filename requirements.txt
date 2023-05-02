@@ -9,3 +9,5 @@ Pillow==9.0.1
 psutil==5.9.2
 scikit-image==0.19.3
 tensorflow-cpu
+flask==2.3.2
+m3u8-To-MP4==0.1.11
