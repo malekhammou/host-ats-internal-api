@@ -12,7 +12,7 @@ app = Flask(__name__)
 def hello():
     return "Welcome to HOST-ATS api."
 
-@app.route('/createThumbnail', methods=['POST'])
+@app.route('/createThumbnail', methods=['GET', 'POST'])
 def download_video():
     data = request.get_json()
     video_url = data['video_url']
