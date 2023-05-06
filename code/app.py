@@ -5,19 +5,20 @@ import requests
 import subprocess
 import m3u8_To_MP4
 import base64
-from flasgger import Swagger,swag_from
+#from flasgger import Swagger,swag_from
 import json
 from flask_cors import CORS, cross_origin
 
 app = Flask(__name__)
-swagger = Swagger(app, template_file='docs/createThumbnail.yml')
+#swagger = Swagger(app, template_file='docs/createThumbnail.yml')
 
 @app.route('/', methods=['GET'])
 def index():
-    return redirect(url_for('flasgger.apidocs'))
+    return "Welcome to HOST-ATS pipeline API."
+    #return redirect(url_for('flasgger.apidocs'))
 
 @app.route('/createThumbnail', methods=['POST'])
-@swag_from('docs/createThumbnail.yml')
+#@swag_from('docs/createThumbnail.yml')
 
 def generateThumbnailFromM3U8():
     data = request.get_json()
