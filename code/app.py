@@ -1,5 +1,6 @@
 from create_thumbnail import main
 from flask import Flask, request,Response
+import create_thumbnail
 import os
 import m3u8_To_MP4
 import base64
@@ -53,9 +54,18 @@ def generateThumbnailFromM3U8():
                 'content-type': 'image/jpeg',
                 'base64': base64.b64encode(image_bytes).decode('utf-8')
             })
+        thumbnailGenerationTimeCli=create_thumbnail.frame_extraction+create_thumbnail.models_loading+create_thumbnail.logo_detection+create_thumbnail.face_detection+create_thumbnail.closeup_detection+create_thumbnail.blur_detection,create_thumbnail.iq_predicition
         response_data = {'images': image_data,
                          'downloadTime': time_download_end - time_download_start,
-                         'thumbnailGenerationTime': time_thumbnail_end - time_thumbnail_start}
+                         'thumbnailGenerationTimeServer': time_thumbnail_end - time_thumbnail_start,
+                         'thumbnailGenerationTimeCli': sum(thumbnailGenerationTimeCli),
+                         'frameExtractionTime':create_thumbnail.frame_extraction,
+                         'modelsLoadingTime':create_thumbnail.models_loading,
+                         'logoDetectionTime':create_thumbnail.logo_detection,
+                         'faceDetectionTime':create_thumbnail.face_detection,
+                         'closeupDetectionTime':create_thumbnail.closeup_detection,
+                         'blurDetectionTime':create_thumbnail.blur_detection,
+                         'iqaTime':create_thumbnail.iq_predicition}
         
     
         response = Response(json.dumps(response_data), mimetype='application/json')

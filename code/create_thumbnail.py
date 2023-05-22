@@ -115,7 +115,7 @@ def main():
     thumbnailCount=finalConfig["thumbnailCount"]
     
 
-
+    #Arguments parsing if provided from CLI.
     
     iteration=args.iteration
     if args.performanceAnalysis:
@@ -230,7 +230,7 @@ def main():
 
 
 
-
+    #Reading input folder.
     processFolder = False
     processFile = False
     if os.path.isdir(inputPath):
@@ -258,6 +258,7 @@ def main():
     if staticThumbnailSec:
         get_static(inputPath, staticThumbnailSec, downscaleOutput, thumbnail_output)
         return
+    #Models loading time
     loadingModelsStarts=time.time()
     if closeupModelName == surmaStr:
         print("Loading Surma Model for close up detection module...")
@@ -270,8 +271,11 @@ def main():
         print("Loading soccernet Model for logo detection module...")
         logo_detection_model = keras.models.load_model(soccernet_logo_model)
     loadingModelsEnds=time.time()
+    global models_loading
     models_loading=loadingModelsEnds-loadingModelsStarts
+    #Logging performance metrics to ../host-ats-ouput.json
     def logMetrics():
+        global total
         total=frame_extraction+models_loading+logo_detection+closeup_detection+face_detection+blur_detection+iq_predicition
         performanceMetrics={
                 "platform":platform.system(),
@@ -325,6 +329,7 @@ def main():
     
 
 def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_up_model, logo_detection_model, faceDetModel, runFaceDetection, runBlur, blurModelName, svdThreshold, laplacianThreshold, runIQA, iqaModelName, runLogoDetection, runCloseUpDetection, closeUpThreshold, brisqueThreshold, logoThreshold, cutStartSeconds, cutEndSeconds, totalFramesToExtract, fpsExtract, framerateExtract, annotationSecond, beforeAnnotationSecondsCut, afterAnnotationSecondsCut, filenameOutput,outputPath,thumbnailCount):
+    #Frames extraction time
     frameExtractionStarts=time.time()
     video_filename = video_path.split("/")[-1]
     frames_folder_outer=outputPath+"/temp/"+video_filename.split(".")[0]+"/"
@@ -413,6 +418,7 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
     for frame in merged_priorities:
 
         if runBlur and runIQA:
+            #Blur detection time
             blurDetectionStarts=time.time()
             if blurModelName == svdStr:
                     blur_score = estimate_blur_svd(frame)
@@ -425,6 +431,7 @@ def create_thumbnail(video_path, downscaleOutput, downscaleOnProcessing, close_u
             blurDetectionEnds=time.time()
             global blur_detection
             blur_detection=blurDetectionEnds-blurDetectionStarts
+            #Image quality assessment time
             IQAStarts=time.time()
             if iqaModelName == ocampoStr:
                 if brisqueScoreTest(frame,brisqueThreshold)==False:
@@ -521,6 +528,10 @@ def groupFrames(frames_folder, close_up_model, logo_detection_model, faceDetMode
                     else:
                         priority_images[1][image_path] = probability
                     faceDetectionEnds=time.time()
+                    if runFaceDetection:
+                        global face_detection
+                        face_detection=faceDetectionEnds-faceDetectionStarts
+
 
 
                 else:
@@ -531,10 +542,7 @@ def groupFrames(frames_folder, close_up_model, logo_detection_model, faceDetMode
         if runCloseUpDetection:
             global closeup_detection
             closeup_detection=closeUpDetectionEnds-closeUpDetectionStarts
-        if runFaceDetection:
-            global face_detection
-            face_detection=faceDetectionEnds-faceDetectionStarts
-
+        
     else:
         probability = 1
         for image in os.listdir(frames_folder):
@@ -644,3 +652,6 @@ def detect_faces(image, faceDetModel):
     return biggestFace
 
 
+
+if __name__ == "__main__":
+    main()
